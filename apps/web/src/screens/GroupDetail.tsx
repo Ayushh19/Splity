@@ -63,8 +63,8 @@ export function GroupDetail() {
   return (
     <main className="screen screen--with-tabs">
       <TopBar
-        back="/"
-        title={g.name}
+        back={g.isDirect ? '/friends' : '/'}
+        title={g.isDirect ? `${g.name} · 1-on-1` : g.name}
         end={
           <Link to={`/groups/${g.id}/settings`} className="icon-button" aria-label="Group settings">
             <Settings size={22} aria-hidden="true" />
@@ -433,7 +433,7 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
 const hoursAgo = (iso: string) => Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000));
 
 /** Nudge someone who owes you; once a day per person (DESIGN.md › Balance row). */
-function RemindButton({ groupId, member, name }: { groupId: string; member: string; name: string }) {
+export function RemindButton({ groupId, member, name }: { groupId: string; member: string; name: string }) {
   const reminders = useReminders(groupId);
   const send = useSendReminder(groupId);
   const toast = useToast();

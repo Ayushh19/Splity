@@ -5,6 +5,8 @@ import type {
   ExpenseDetail,
   ExpenseInput,
   ExpenseView,
+  FriendDetail,
+  FriendSummary,
   GroupBalances,
   GroupDetail,
   GroupSummary,
@@ -221,6 +223,7 @@ function useMoneyMutation<V, R>(groupId: string, request: (vars: V) => Promise<R
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['groups', groupId] });
       void queryClient.invalidateQueries({ queryKey: ['groups'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
     },
   });
 }
@@ -345,4 +348,26 @@ export function useDeletionCheck(enabled: boolean) {
 
 export function useDeleteAccount() {
   return useMutation({ mutationFn: () => api<null>('/me/delete', json('POST', { confirm: 'DELETE' })) });
+}
+
+// ── Friends ────────────────────────────────────────────────────
+
+export function useFriends() {
+  return useQuery({ queryKey: ['friends'], queryFn: () => api<FriendSummary[]>('/friends') });
+}
+
+export function useFriend(userId: string) {
+  return useQuery({ queryKey: ['friends', userId], queryFn: () => api<FriendDetail>(`/friends/${userId}`) });
+}
+
+/** Your 1-on-1 group with a friend, created on first use. */
+export function useOpenDirect() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => api<GroupDetail>(`/friends/${userId}/direct`, { method: 'POST' }),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(['groups', detail.id], detail);
+      void queryClient.invalidateQueries({ queryKey: ['friends'] });
+    },
+  });
 }

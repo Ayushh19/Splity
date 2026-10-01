@@ -42,7 +42,7 @@ export function Home() {
         <>
           <BalanceReadout groups={groups.data} />
 
-          {groups.data.length === 0 ? (
+          {groups.data.filter((g) => !g.isDirect).length === 0 ? (
             <EmptyState
               icon={Users}
               line="> NO GROUPS YET"
@@ -59,7 +59,9 @@ export function Home() {
                 Groups
               </h2>
               <ul className="list">
-                {groups.data.map((g) => (
+                {groups.data
+                  .filter((g) => !g.isDirect)
+                  .map((g) => (
                   <li key={g.id}>
                     <Link to={`/groups/${g.id}`} className="row">
                       <Avatar name={g.name} />

@@ -66,9 +66,12 @@ export interface MemberView {
 
 export interface GroupSummary {
   id: string;
+  /** For 1-on-1 groups: the other person's name. */
   name: string;
   currency: string;
   archived: boolean;
+  /** Hidden 1-on-1 group: counted in totals, not listed with groups. */
+  isDirect: boolean;
   /** Your net balance in this group. */
   yourNetMinor: Minor;
   memberCount: number;
@@ -78,7 +81,9 @@ export interface GroupSummary {
 
 export interface GroupDetail {
   id: string;
+  /** For 1-on-1 groups: the other person's name. */
   name: string;
+  isDirect: boolean;
   currency: string;
   simplifyDebts: boolean;
   archived: boolean;

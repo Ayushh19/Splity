@@ -92,6 +92,7 @@ export function createNotifier(db: Db, send: PushSender | null) {
         revisionId: activityEvents.revisionId,
         payload: activityEvents.payload,
         groupName: groups.name,
+        isDirect: groups.isDirect,
         currency: groups.currency,
       })
       .from(activityEvents)
@@ -145,6 +146,8 @@ export function createNotifier(db: Db, send: PushSender | null) {
       );
     const memberOfUser = new Map(recipients.map((r) => [r.userId!, r.memberId]));
     const money = (minor: number) => formatAmount(minor, event.currency);
+    // 1-on-1 groups have no real name: title the notification with the person instead.
+    const title = event.isDirect ? actorName : event.groupName;
 
     await deliver([...memberOfUser.keys()], (userId) => {
       const me = memberOfUser.get(userId)!;
@@ -164,7 +167,7 @@ export function createNotifier(db: Db, send: PushSender | null) {
                   ? ` You're no longer in it.`
                   : '';
         return {
-          title: event.groupName,
+          title,
           body: `${actorName} ${EXPENSE_VERBS[event.type]} "${s.description}" (${money(s.amountMinor)}).${share}`,
           url: `/groups/${event.groupId}/expenses/${event.entityId}`,
           tag: `expense-${event.entityId}`,
@@ -174,7 +177,7 @@ export function createNotifier(db: Db, send: PushSender | null) {
       const who = (id: string) => (id === me ? 'you' : (nameOf.get(id) ?? 'someone'));
       const note = event.type === 'settlement.disputed' && s.disputeNote ? ` — "${s.disputeNote}"` : '';
       return {
-        title: event.groupName,
+        title,
         body: `${actorName} ${SETTLEMENT_VERBS[event.type]}: ${who(s.fromMember)} paid ${who(s.toMember)} ${money(s.amountMinor)}${note}`,
         url: `/groups/${event.groupId}/settlements/${event.entityId}`,
         tag: `settlement-${event.entityId}`,

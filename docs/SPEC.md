@@ -66,6 +66,18 @@ and transparency beat feature breadth. No growth/monetization goals.
 - One per pair of real users (friend = someone you share a group with), in the creator's
   **default currency** (profile setting, default INR); foreign expenses use the manual FX rate.
 - Both people are admins. No invite link, no placeholders, cannot be left or archived.
+- Created on first use from **Add expense with <friend>** (friend page or the (+) picker);
+  later uses reuse it. Shown everywhere as the friend's name ("Priya · 1-on-1"); its settings
+  only offer mute. Pushes from it are titled with the person, not a group name.
+
+### Friends (decided 2026-10-01)
+- Friends tab lists everyone with an account (not deleted) you share a non-archived group with,
+  people with a balance first. Each shows "owes you / you owe" per currency, never converted.
+- The pairwise number per group follows **that group's** simplify setting, i.e. exactly what its
+  Balances tab shows, so the friend page and the group never disagree.
+- Friend page: overall readout per currency, "Add expense with <friend>", and a by-group list
+  (1-on-1 first) with Settle / Record and Remind per group.
+- Home totals include 1-on-1 balances; the Home group list doesn't show 1-on-1 groups.
 
 ### Visibility
 - Every member of a group sees **every** expense, settlement and activity in that group.

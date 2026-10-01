@@ -134,7 +134,7 @@ export function groupNotificationRoutes({ db, auth, notifier, baseUrl }: Notific
       .leftJoin(users, eq(users.id, groupMembers.userId))
       .where(eq(groupMembers.id, me.id));
     const reached = await notifier.remind(target.userId, {
-      title: group.name,
+      title: group.isDirect ? (sender?.name ?? 'Splity') : group.name,
       body: `${sender?.name ?? 'A friend'} reminds you: you owe them ${formatAmount(owed, group.currency)}.`,
       url: `/groups/${groupId}?tab=balances`,
       tag: `reminder-${groupId}-${me.id}`,

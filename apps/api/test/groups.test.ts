@@ -74,7 +74,7 @@ describe('creating groups', () => {
     const g = await createGroup(you, ['Priya'], 'Goa Trip');
     const list = await you.get('/groups');
     expect(list.body).toEqual([
-      { id: g.id, name: 'Goa Trip', currency: 'INR', archived: false, yourNetMinor: 0, memberCount: 2, youAreRemoved: false },
+      { id: g.id, name: 'Goa Trip', currency: 'INR', archived: false, isDirect: false, yourNetMinor: 0, memberCount: 2, youAreRemoved: false },
     ]);
   });
 

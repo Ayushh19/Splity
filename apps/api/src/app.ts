@@ -8,6 +8,7 @@ import { users } from './db/schema';
 import { body, HttpError, requireUser, type AppEnv } from './http';
 import { accountRoutes } from './routes/account';
 import { expenseRoutes } from './routes/expenses';
+import { friendRoutes } from './routes/friends';
 import { groupNotificationRoutes, pushRoutes } from './routes/notifications';
 import { groupRoutes } from './routes/groups';
 import { settlementRoutes } from './routes/settlements';
@@ -84,6 +85,7 @@ export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
   app.route('/groups/:groupId', settlementRoutes({ db, auth, notifier }));
   app.route('/groups/:groupId', groupNotificationRoutes({ db, auth, notifier, baseUrl }));
   app.route('/push', pushRoutes({ db, auth }));
+  app.route('/friends', friendRoutes({ db, auth, baseUrl }));
   app.route('/invites', inviteRoutes({ db, auth, baseUrl }));
 
   return app;

@@ -8,7 +8,7 @@ import {
   type GroupSummary,
   type MemberView,
 } from '@splity/shared';
-import { and, asc, count, desc, eq, inArray, max } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, ne } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Auth } from '../auth';
 import type { Db, DbOrTx } from '../db/client';
@@ -94,7 +94,9 @@ export async function groupDetail(db: DbOrTx, group: Group, me: Member, baseUrl:
 
   return {
     id: group.id,
-    name: group.name,
+    // A 1-on-1 group is shown as the other person.
+    name: group.isDirect ? (members.find((m) => !m.isYou)?.displayName ?? group.name) : group.name,
+    isDirect: group.isDirect,
     currency: group.currency,
     simplifyDebts: group.simplifyDebts,
     archived: group.archivedAt !== null,
@@ -119,17 +121,14 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
       .from(groupMembers)
       .innerJoin(groups, eq(groups.id, groupMembers.groupId))
       .where(
-        and(
-          eq(groupMembers.userId, c.var.userId),
-          inArray(groupMembers.status, ['active', 'removed']),
-          eq(groups.isDirect, false),
-        ),
+        and(eq(groupMembers.userId, c.var.userId), inArray(groupMembers.status, ['active', 'removed'])),
       );
     const visible = mine.filter((m) => (m.group.archivedAt !== null) === archived);
     const groupIds = visible.map((m) => m.group.id);
     if (groupIds.length === 0) return c.json([] satisfies GroupSummary[]);
 
-    const [ledgers, counts, lastActivity] = await Promise.all([
+    const directIds = visible.filter((m) => m.group.isDirect).map((m) => m.group.id);
+    const [ledgers, counts, lastActivity, others] = await Promise.all([
       memberLedgers(db, groupIds),
       db
         .select({ groupId: groupMembers.groupId, n: count() })
@@ -141,16 +140,26 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
         .from(activityEvents)
         .where(inArray(activityEvents.groupId, groupIds))
         .groupBy(activityEvents.groupId),
+      // The other person in each 1-on-1 group, for its name.
+      directIds.length
+        ? db
+            .select({ groupId: groupMembers.groupId, name: effectiveName })
+            .from(groupMembers)
+            .leftJoin(users, eq(users.id, groupMembers.userId))
+            .where(and(inArray(groupMembers.groupId, directIds), ne(groupMembers.userId, c.var.userId)))
+        : Promise.resolve([]),
     ]);
+    const otherName = new Map(others.map((o) => [o.groupId, o.name]));
     const countOf = new Map(counts.map((r) => [r.groupId, r.n]));
     const lastAt = new Map(lastActivity.map((r) => [r.groupId, r.at?.getTime() ?? 0]));
 
     const summaries: GroupSummary[] = visible
       .map((m) => ({
         id: m.group.id,
-        name: m.group.name,
+        name: m.group.isDirect ? (otherName.get(m.group.id) ?? m.group.name) : m.group.name,
         currency: m.group.currency,
         archived: m.group.archivedAt !== null,
+        isDirect: m.group.isDirect,
         yourNetMinor: ledgers.get(m.memberId)?.netMinor ?? 0,
         memberCount: countOf.get(m.group.id) ?? 0,
         youAreRemoved: m.status === 'removed',

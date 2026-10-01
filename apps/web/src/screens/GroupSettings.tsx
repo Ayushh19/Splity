@@ -50,13 +50,20 @@ export function GroupSettings() {
           {g.archived ? 'This group is archived and read-only.' : "You're no longer a member, so settings are read-only."}
         </p>
       )}
-      <RenameForm group={g} disabled={!canWrite} />
-      <SimplifySetting group={g} disabled={!canWrite} />
-      <MuteSetting group={g} />
-      {g.inviteUrl && canWrite && <InviteLink group={g} isAdmin={isAdmin} />}
-      <Members group={g} isAdmin={isAdmin} canWrite={canWrite} />
-      {g.you.status === 'active' && g.you.role === 'admin' && <ArchiveSection group={g} />}
-      {canWrite && <LeaveGroup group={g} />}
+      {g.isDirect ? (
+        // A 1-on-1 has exactly two people: no name, members, invite link, archiving or leaving.
+        <MuteSetting group={g} />
+      ) : (
+        <>
+          <RenameForm group={g} disabled={!canWrite} />
+          <SimplifySetting group={g} disabled={!canWrite} />
+          <MuteSetting group={g} />
+          {g.inviteUrl && canWrite && <InviteLink group={g} isAdmin={isAdmin} />}
+          <Members group={g} isAdmin={isAdmin} canWrite={canWrite} />
+          {g.you.status === 'active' && g.you.role === 'admin' && <ArchiveSection group={g} />}
+          {canWrite && <LeaveGroup group={g} />}
+        </>
+      )}
     </main>
   );
 }

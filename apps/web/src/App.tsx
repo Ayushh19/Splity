@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Activity, Users } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router';
 import { AppShell } from './components/AppShell';
@@ -13,6 +13,7 @@ import { AddExpense, EditExpense, ExpenseDetail, PickGroup } from './screens/Exp
 import { EditSettlement, SettlementDetail, SettleUp } from './screens/SettleScreens';
 import { GroupDetail } from './screens/GroupDetail';
 import { GroupSettings } from './screens/GroupSettings';
+import { FriendDetail, Friends } from './screens/Friends';
 import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Join } from './screens/Join';
@@ -40,7 +41,8 @@ export function App() {
               <Route path="groups/:groupId/settings" element={<GroupSettings />} />
               <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
               <Route path="groups/:groupId/settlements/:settlementId" element={<SettlementDetail />} />
-              <Route path="friends" element={<ComingSoon title="Friends" icon={Users} line="> NO FRIENDS LOGGED" text="Everyone you share a group with shows up here once expenses arrive." />} />
+              <Route path="friends" element={<Friends />} />
+              <Route path="friends/:userId" element={<FriendDetail />} />
               <Route path="activity" element={<ComingSoon title="Activity" icon={Activity} line="> LOG EMPTY" text="A feed across all your groups is coming. Each group's activity is in its Activity tab." />} />
               <Route path="add" element={<PickGroup />} />
               <Route path="account" element={<Account />} />

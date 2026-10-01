@@ -9,8 +9,10 @@ import {
   useCreateExpense,
   useDeleteExpense,
   useExpense,
+  useFriends,
   useGroup,
   useGroups,
+  useOpenDirect,
   useRestoreExpense,
   useUpdateExpense,
 } from '../lib/api';
@@ -37,16 +39,32 @@ function Failed({ error, back }: { error: unknown; back: string }) {
   );
 }
 
-/** (+) key: pick a group first (skipped when there is only one). */
+/** (+) key: "Which group or friend?" (skipped when there is only one choice). */
 export function PickGroup() {
   const groups = useGroups();
-  if (groups.isPending) return <Loading />;
+  const friends = useFriends();
+  const openDirect = useOpenDirect();
+  const navigate = useNavigate();
+  const toast = useToast();
+  if (groups.isPending || friends.isPending) return <Loading />;
   if (groups.isError) return <Failed error={groups.error} back="/" />;
-  if (groups.data.length === 1) return <Navigate to={`/groups/${groups.data[0]!.id}/expenses/new`} replace />;
-  return (
-    <main className="screen screen--with-tabs">
-      <TopBar title="Add expense" />
-      {groups.data.length === 0 ? (
+  const listed = groups.data.filter((g) => !g.isDirect && !g.youAreRemoved);
+  const people = friends.data ?? [];
+  if (listed.length === 1 && people.length === 0) return <Navigate to={`/groups/${listed[0]!.id}/expenses/new`} replace />;
+
+  async function withFriend(userId: string) {
+    try {
+      const direct = await openDirect.mutateAsync(userId);
+      void navigate(`/groups/${direct.id}/expenses/new`);
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  }
+
+  if (listed.length === 0 && people.length === 0) {
+    return (
+      <main className="screen screen--with-tabs">
+        <TopBar title="Add expense" />
         <EmptyState
           icon={Users}
           line="> NO GROUPS YET"
@@ -57,21 +75,42 @@ export function PickGroup() {
             </Link>
           }
         />
-      ) : (
+      </main>
+    );
+  }
+
+  return (
+    <main className="screen screen--with-tabs">
+      <TopBar title="Add expense" />
+      {listed.length > 0 && (
         <section>
           <h2 className="label section-label">Which group?</h2>
           <ul className="list">
-            {groups.data
-              .filter((g) => !g.youAreRemoved)
-              .map((g) => (
-                <li key={g.id}>
-                  <Link to={`/groups/${g.id}/expenses/new`} className="row">
-                    <Avatar name={g.name} />
-                    <span className="row__main row__title">{g.name}</span>
-                    <Plus size={20} aria-hidden="true" />
-                  </Link>
-                </li>
-              ))}
+            {listed.map((g) => (
+              <li key={g.id}>
+                <Link to={`/groups/${g.id}/expenses/new`} className="row">
+                  <Avatar name={g.name} />
+                  <span className="row__main row__title">{g.name}</span>
+                  <Plus size={20} aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {people.length > 0 && (
+        <section>
+          <h2 className="label section-label">Or with a friend</h2>
+          <ul className="list">
+            {people.map((f) => (
+              <li key={f.userId}>
+                <button type="button" className="row" disabled={openDirect.isPending} onClick={() => withFriend(f.userId)}>
+                  <Avatar name={f.displayName} photoUrl={f.photoUrl} />
+                  <span className="row__main row__title">{f.displayName}</span>
+                  <Plus size={20} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
           </ul>
         </section>
       )}
