@@ -5,7 +5,7 @@ import { Archive, BellRing, LogOut, Share, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Sheet, Toggle, TopBar, useToast } from '../components/ui';
-import { errorMessage, useAuthConfig, useDeleteAccount, useDeletionCheck, useMe, useUpdateProfile } from '../lib/api';
+import { errorMessage, forgetSession, useAuthConfig, useDeleteAccount, useDeletionCheck, useMe, useUpdateProfile } from '../lib/api';
 import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
 import { authClient } from '../lib/auth-client';
 import { CURRENCIES } from '../lib/format';
@@ -14,13 +14,22 @@ import { CURRENCIES } from '../lib/format';
 export function Account() {
   const me = useMe();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [signingOut, setSigningOut] = useState(false);
 
   async function signOut() {
-    // This device must stop getting the account's notifications.
+    setSigningOut(true);
+    // This device must stop getting the account's notifications (best effort).
     await disablePush().catch(() => undefined);
-    await authClient.signOut();
-    queryClient.clear();
-    queryClient.setQueryData(['me'], null);
+    const { error } = await authClient.signOut();
+    if (error) {
+      setSigningOut(false);
+      toast("Couldn't sign out. Check your connection and try again.", 'error');
+      return;
+    }
+    forgetSession(queryClient);
+    void navigate('/sign-in', { replace: true });
   }
 
   return (
@@ -33,9 +42,9 @@ export function Account() {
         <span className="row__main row__title">History</span>
         <span className="text-muted">›</span>
       </Link>
-      <button type="button" className="key key--secondary" onClick={signOut}>
+      <button type="button" className="key key--secondary" onClick={signOut} disabled={signingOut}>
         <LogOut size={20} aria-hidden="true" />
-        Sign out
+        {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
       <DeleteAccount />
     </main>
@@ -177,8 +186,7 @@ function DeleteAccount() {
     try {
       await disablePush().catch(() => undefined);
       await del.mutateAsync();
-      queryClient.clear();
-      queryClient.setQueryData(['me'], null);
+      forgetSession(queryClient);
       toast('Your account was deleted');
       void navigate('/sign-in', { replace: true });
     } catch {

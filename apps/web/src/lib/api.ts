@@ -23,7 +23,7 @@ import type {
   SettlementView,
   UpdateGroup,
 } from '@splity/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 export class ApiError extends Error {
   constructor(
@@ -53,6 +53,18 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const json = (method: string, data: unknown): RequestInit => ({ method, body: JSON.stringify(data) });
+
+// ── Session ────────────────────────────────────────────────────
+
+/**
+ * Forget everything cached for the signed-in user after sign-out or account deletion.
+ * Order matters: `clear()` would detach the route guard's `['me']` observer, so it would
+ * never see the null and the app would stay on the page. Set `me` first, then drop the rest.
+ */
+export function forgetSession(queryClient: QueryClient) {
+  queryClient.setQueryData(['me'], null);
+  queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+}
 
 // ── Profile ────────────────────────────────────────────────────
 

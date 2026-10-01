@@ -22,7 +22,9 @@ export function registerServiceWorker(): void {
 
 async function registration(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
-  return (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.ready);
+  // Not `navigator.serviceWorker.ready`: it never resolves when no worker is registered,
+  // which would hang sign-out.
+  return (await navigator.serviceWorker.getRegistration()) ?? null;
 }
 
 export async function pushState(): Promise<PushState> {
@@ -46,8 +48,9 @@ function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
 export async function enablePush(vapidPublicKey: string): Promise<PushState> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'off';
-  const reg = await registration();
-  if (!reg) return 'unsupported';
+  if (!(await registration())) return 'unsupported';
+  // A registration exists, so `ready` will resolve, with the worker active (needed to subscribe).
+  const reg = await navigator.serviceWorker.ready;
   const sub =
     (await reg.pushManager.getSubscription()) ??
     (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(vapidPublicKey) }));
