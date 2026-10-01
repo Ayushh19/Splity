@@ -103,7 +103,8 @@ export type ApiErrorCode =
   | 'already_member'
   | 'already_claimed'
   | 'nonzero_balance'
-  | 'last_member';
+  | 'last_member'
+  | 'conflict';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

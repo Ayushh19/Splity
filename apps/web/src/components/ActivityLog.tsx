@@ -1,3 +1,4 @@
+import { formatAmount } from '@splity/shared';
 import type { ActivityEvent } from '../lib/api';
 import { logDay, logTime } from '../lib/format';
 
@@ -35,6 +36,14 @@ function describe(e: ActivityEvent): string {
       return 'left the group';
     case 'admin.auto_promoted':
       return `${str(p.name)} is now an admin`;
+    case 'expense.created':
+    case 'expense.updated':
+    case 'expense.deleted':
+    case 'expense.restored': {
+      const verb = { 'expense.created': 'added', 'expense.updated': 'edited', 'expense.deleted': 'deleted', 'expense.restored': 'restored' }[e.type];
+      const amount = typeof p.amountMinor === 'number' && str(p.currency) ? ` · ${formatAmount(p.amountMinor, str(p.currency))}` : '';
+      return `${verb} "${str(p.description)}"${amount}`;
+    }
     default:
       return e.type;
   }

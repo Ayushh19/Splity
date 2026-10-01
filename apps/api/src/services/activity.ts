@@ -15,7 +15,11 @@ export type ActivityType =
   | 'member.removed'
   | 'member.deleted'
   | 'member.left'
-  | 'admin.auto_promoted';
+  | 'admin.auto_promoted'
+  | 'expense.created'
+  | 'expense.updated'
+  | 'expense.deleted'
+  | 'expense.restored';
 
 export async function logActivity(
   db: DbOrTx,
@@ -23,8 +27,9 @@ export async function logActivity(
     groupId: string;
     actorMember: string | null;
     type: ActivityType;
-    entityType?: 'member' | 'group';
+    entityType?: 'member' | 'group' | 'expense' | 'settlement';
     entityId?: string;
+    revisionId?: string;
     /** Display data captured at the time (names, old/new values). */
     payload?: Record<string, unknown>;
   },
@@ -35,6 +40,7 @@ export async function logActivity(
     type: event.type,
     entityType: event.entityType ?? null,
     entityId: event.entityId ?? null,
+    revisionId: event.revisionId ?? null,
     payload: event.payload ?? {},
   });
 }

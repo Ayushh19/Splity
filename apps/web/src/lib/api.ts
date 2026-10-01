@@ -2,6 +2,10 @@ import type {
   AddPlaceholder,
   ApiErrorBody,
   CreateGroup,
+  ExpenseDetail,
+  ExpenseInput,
+  ExpenseView,
+  GroupBalances,
   GroupDetail,
   GroupSummary,
   InvitePreview,
@@ -181,4 +185,62 @@ export function useJoinInvite(token: string) {
       void queryClient.invalidateQueries({ queryKey: ['invite', token] });
     },
   });
+}
+
+// ── Expenses ───────────────────────────────────────────────────
+
+export function useExpenses(groupId: string, { deleted = false } = {}) {
+  return useQuery({
+    queryKey: ['groups', groupId, 'expenses', { deleted }],
+    queryFn: () => api<ExpenseView[]>(`/groups/${groupId}/expenses${deleted ? '?deleted=1' : ''}`),
+  });
+}
+
+export function useExpense(groupId: string, expenseId: string) {
+  return useQuery({
+    queryKey: ['groups', groupId, 'expense', expenseId],
+    queryFn: () => api<ExpenseDetail>(`/groups/${groupId}/expenses/${expenseId}`),
+  });
+}
+
+export function useBalances(groupId: string) {
+  return useQuery({ queryKey: ['groups', groupId, 'balances'], queryFn: () => api<GroupBalances>(`/groups/${groupId}/balances`) });
+}
+
+/** After any expense change: this group's data (balances, lists, activity, detail) and Home. */
+function useExpenseMutation<V>(groupId: string, request: (vars: V) => Promise<ExpenseView>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['groups', groupId] });
+      void queryClient.invalidateQueries({ queryKey: ['groups'], exact: true });
+    },
+  });
+}
+
+export const useCreateExpense = (groupId: string) =>
+  useExpenseMutation(groupId, (input: ExpenseInput) => api<ExpenseView>(`/groups/${groupId}/expenses`, json('POST', input)));
+
+export const useUpdateExpense = (groupId: string, expenseId: string) =>
+  useExpenseMutation(groupId, (input: ExpenseInput & { version: number }) =>
+    api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}`, json('PUT', input)),
+  );
+
+export const useDeleteExpense = (groupId: string, expenseId: string) =>
+  useExpenseMutation(groupId, (version: number) =>
+    api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}/delete`, json('POST', { version })),
+  );
+
+export const useRestoreExpense = (groupId: string, expenseId: string) =>
+  useExpenseMutation(groupId, (version: number) =>
+    api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}/restore`, json('POST', { version })),
+  );
+
+/** The server's 409 body when someone else saved first. */
+export function conflictOf(error: unknown): { changedBy: string; current: ExpenseView } | null {
+  if (error instanceof ApiError && error.status === 409 && error.body && 'current' in error.body) {
+    return error.body as unknown as { changedBy: string; current: ExpenseView };
+  }
+  return null;
 }

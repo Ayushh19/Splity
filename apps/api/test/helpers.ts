@@ -61,6 +61,7 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
       get: (path: string) => call('GET', path),
       post: (path: string, json: unknown = {}) => call('POST', path, json),
       patch: (path: string, json: unknown) => call('PATCH', path, json),
+      put: (path: string, json: unknown) => call('PUT', path, json),
       del: (path: string) => call('DELETE', path),
     };
   }

@@ -6,6 +6,7 @@ import type { Auth } from './auth';
 import type { Db } from './db/client';
 import { users } from './db/schema';
 import { body, HttpError, requireUser, type AppEnv } from './http';
+import { expenseRoutes } from './routes/expenses';
 import { groupRoutes } from './routes/groups';
 import { inviteRoutes } from './routes/invites';
 
@@ -24,8 +25,7 @@ export function createApp({ db, auth, baseUrl, features }: AppDeps) {
 
   app.onError((err, c) => {
     if (err instanceof HttpError) {
-      const issues = (err as HttpError & { issues?: unknown }).issues;
-      return c.json({ error: err.code, message: err.message, ...(issues ? { issues } : {}) }, err.status);
+      return c.json({ ...err.details, error: err.code, message: err.message }, err.status);
     }
     if (err instanceof HTTPException) return err.getResponse();
     console.error(err);
@@ -74,6 +74,7 @@ export function createApp({ db, auth, baseUrl, features }: AppDeps) {
   });
 
   app.route('/groups', groupRoutes({ db, auth, baseUrl }));
+  app.route('/groups/:groupId', expenseRoutes({ db, auth }));
   app.route('/invites', inviteRoutes({ db, auth, baseUrl }));
 
   return app;

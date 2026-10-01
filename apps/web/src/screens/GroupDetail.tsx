@@ -1,9 +1,11 @@
-import { formatAmount, type GroupDetail as Group } from '@splity/shared';
-import { Receipt, Settings, UserPlus } from 'lucide-react';
+import { formatAmount, type ExpenseView, type GroupDetail as Group, type Transfer } from '@splity/shared';
+import { Plus, Receipt, Settings, UserPlus } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ActivityLog } from '../components/ActivityLog';
-import { Avatar, Badge, EmptyState, Money, Toggle, TopBar, useShareLink } from '../components/ui';
-import { errorMessage, useGroup, useGroupActivity, useUpdateGroup } from '../lib/api';
+import { Avatar, Badge, EmptyState, Money, Sheet, Toggle, TopBar, useShareLink } from '../components/ui';
+import { errorMessage, useBalances, useExpenses, useGroup, useGroupActivity, useUpdateGroup } from '../lib/api';
+import { CategoryIcon, nameLookup } from '../lib/expenses';
 import { signedAmount } from '../lib/format';
 
 const TABS = ['expenses', 'balances', 'activity'] as const;
@@ -72,11 +74,19 @@ export function GroupDetail() {
         )}
       </section>
 
-      {canWrite && g.inviteUrl && (
-        <button type="button" className="key key--secondary" onClick={() => share(g.inviteUrl!, g.name)}>
-          <UserPlus size={20} aria-hidden="true" />
-          Invite friends
-        </button>
+      {canWrite && (
+        <div className="input-row">
+          <Link to={`/groups/${g.id}/expenses/new`} className="key key--primary" style={{ flex: 1 }}>
+            <Plus size={20} aria-hidden="true" />
+            Add expense
+          </Link>
+          {g.inviteUrl && (
+            <button type="button" className="key key--secondary" onClick={() => share(g.inviteUrl!, g.name)}>
+              <UserPlus size={20} aria-hidden="true" />
+              Invite
+            </button>
+          )}
+        </div>
       )}
 
       <div className="segmented" role="tablist" aria-label="Group sections">
@@ -98,9 +108,7 @@ export function GroupDetail() {
       </div>
 
       <section id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-        {tab === 'expenses' && (
-          <EmptyState icon={Receipt} line="> NO EXPENSES YET" text="Adding expenses arrives in the next build." />
-        )}
+        {tab === 'expenses' && <Expenses group={g} />}
         {tab === 'balances' && <Balances group={g} canWrite={canWrite} />}
         {tab === 'activity' && <GroupActivity groupId={g.id} />}
       </section>
@@ -108,9 +116,116 @@ export function GroupDetail() {
   );
 }
 
+const dayFormat = new Intl.DateTimeFormat('en-IN', { day: '2-digit' });
+const monthFormat = new Intl.DateTimeFormat('en-IN', { month: 'short' });
+
+function Expenses({ group }: { group: Group }) {
+  const expenses = useExpenses(group.id);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const deleted = useExpenses(group.id, { deleted: true });
+
+  if (expenses.isPending) return <div className="skeleton" style={{ height: 160 }} />;
+  if (expenses.isError) {
+    return (
+      <p className="banner banner--error" role="alert">
+        {errorMessage(expenses.error)}
+      </p>
+    );
+  }
+  const deletedCount = deleted.data?.length ?? 0;
+  return (
+    <div className="stack">
+      {expenses.data.length === 0 ? (
+        <EmptyState icon={Receipt} line="> NO EXPENSES YET" text="Add the first one and Splity will keep score." />
+      ) : (
+        <ExpenseList group={group} expenses={expenses.data} />
+      )}
+      {deletedCount > 0 && (
+        <button type="button" className="key key--text" onClick={() => setShowDeleted(!showDeleted)}>
+          {showDeleted ? 'Hide' : 'Show'} deleted expenses ({deletedCount})
+        </button>
+      )}
+      {showDeleted && deleted.data && <ExpenseList group={group} expenses={deleted.data} muted />}
+    </div>
+  );
+}
+
+function ExpenseList({ group, expenses, muted }: { group: Group; expenses: ExpenseView[]; muted?: boolean }) {
+  const name = nameLookup(group);
+  const me = group.you.memberId;
+  const cur = group.currency;
+  return (
+    <ul className="list">
+      {expenses.map((e) => {
+        const date = new Date(`${e.expenseDate}T00:00:00`);
+        const paid = e.payers.find((p) => p.memberId === me)?.paidMinor ?? 0;
+        const owed = e.splits.find((s) => s.memberId === me)?.owedMinor ?? 0;
+        const involved = e.payers.some((p) => p.memberId === me) || e.splits.some((s) => s.memberId === me);
+        const net = paid - owed;
+        const payerText =
+          e.payers.length === 1
+            ? `${name(e.payers[0]!.memberId)} paid ${formatAmount(e.amountMinor, cur)}`
+            : `${e.payers.length} people paid ${formatAmount(e.amountMinor, cur)}`;
+        return (
+          <li key={e.id}>
+            <Link to={`/groups/${group.id}/expenses/${e.id}`} className={`row${muted ? ' row--muted' : ''}`}>
+              <span className="date-stub" aria-hidden="true">
+                <span className="date-stub__day">{dayFormat.format(date)}</span>
+                <span className="date-stub__month">{monthFormat.format(date).toUpperCase()}</span>
+              </span>
+              <span className="row__main">
+                <span className="row__title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CategoryIcon category={e.category} size={16} />
+                  <span className="row__title">{e.description}</span>
+                </span>
+                <span className="small text-muted">{payerText}</span>
+              </span>
+              <span className="row__end small">
+                {muted ? (
+                  <span className="text-muted">deleted</span>
+                ) : !involved ? (
+                  <span className="text-muted">not involved</span>
+                ) : net === 0 ? (
+                  <span className="text-muted">no balance</span>
+                ) : (
+                  <Money netMinor={net}>
+                    <span style={{ display: 'block' }}>{net > 0 ? 'you lent' : 'you owe'}</span>
+                    {formatAmount(Math.abs(net), cur)}
+                  </Money>
+                )}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
   const update = useUpdateGroup(group.id);
-  const me = group.members.find((m) => m.isYou)!;
+  const balances = useBalances(group.id);
+  const [why, setWhy] = useState<Transfer | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const name = nameLookup(group);
+  const me = group.you.memberId;
+  const cur = group.currency;
+
+  if (balances.isPending) return <div className="skeleton" style={{ height: 160 }} />;
+  if (balances.isError) {
+    return (
+      <p className="banner banner--error" role="alert">
+        {errorMessage(balances.error)}
+      </p>
+    );
+  }
+
+  const b = balances.data;
+  const transfers = group.simplifyDebts ? b.simplified : b.raw;
+  const mine = transfers.filter((t) => t.from === me || t.to === me);
+  const others = transfers.filter((t) => t.from !== me && t.to !== me);
+  const memberById = new Map(group.members.map((m) => [m.id, m]));
+
   return (
     <div className="stack">
       <Toggle
@@ -122,36 +237,105 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
 
       <section>
         <h2 className="label section-label">Your balance</h2>
-        {me.netMinor === 0 ? (
+        {mine.length === 0 ? (
           <p className="text-muted">You're all settled up.</p>
         ) : (
-          <p>
-            <Money netMinor={me.netMinor}>{signedAmount(me.netMinor, group.currency)}</Money>
-          </p>
+          <ul className="list">
+            {mine.map((t) => {
+              const youOwe = t.from === me;
+              const other = memberById.get(youOwe ? t.to : t.from);
+              return (
+                <li key={`${t.from}-${t.to}`} className="row">
+                  <Avatar name={other?.displayName ?? '?'} photoUrl={other?.photoUrl} />
+                  <span className="row__main">
+                    <span className="row__title" style={{ display: 'block' }}>
+                      {youOwe ? `You owe ${name(t.to)}` : `${name(t.from)} owes you`}
+                    </span>
+                    {group.simplifyDebts && (
+                      <button type="button" className="link-button" onClick={() => setWhy(t)}>
+                        why? ›
+                      </button>
+                    )}
+                  </span>
+                  <span className="row__end">
+                    <Money netMinor={youOwe ? -1 : 1}>{formatAmount(t.amountMinor, cur)}</Money>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
       <section>
         <h2 className="label section-label">Everyone</h2>
         <ul className="list">
-          {group.members.map((m) => (
-            <li key={m.id} className={`row${m.status === 'removed' ? ' row--muted' : ''}`}>
-              <Avatar name={m.displayName} photoUrl={m.photoUrl} />
-              <span className="row__main">
-                <span className="row__title" style={{ display: 'block' }}>
-                  {m.displayName}
-                  {m.isYou && <span className="text-muted"> (you)</span>}
+          {b.net.map(({ memberId, netMinor }) => {
+            const m = memberById.get(memberId);
+            if (!m) return null;
+            return (
+              <li key={memberId} className={`row${m.status === 'removed' ? ' row--muted' : ''}`}>
+                <Avatar name={m.displayName} photoUrl={m.photoUrl} />
+                <span className="row__main">
+                  <span className="row__title" style={{ display: 'block' }}>
+                    {m.displayName}
+                    {m.isYou && <span className="text-muted"> (you)</span>}
+                  </span>
+                  {m.isPlaceholder && <Badge>Placeholder</Badge>} {m.status === 'removed' && <Badge>Removed</Badge>}
                 </span>
-                {m.isPlaceholder && <Badge>Placeholder</Badge>} {m.status === 'removed' && <Badge>Removed</Badge>}
-              </span>
-              <span className="row__end">
-                <Money netMinor={m.netMinor}>{signedAmount(m.netMinor, group.currency)}</Money>
-              </span>
-            </li>
-          ))}
+                <span className="row__end">
+                  <Money netMinor={netMinor}>{signedAmount(netMinor, cur)}</Money>
+                </span>
+              </li>
+            );
+          })}
         </ul>
+        {others.length > 0 && (
+          <>
+            <button type="button" className="key key--text" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
+              {showAll ? '▾' : '▸'} Show all payments ({transfers.length})
+            </button>
+            {showAll && <TransferList transfers={transfers} name={name} currency={cur} />}
+          </>
+        )}
       </section>
+
+      <Sheet open={why !== null} onClose={() => setWhy(null)} label="Why this payment">
+        {why && (
+          <div className="stack">
+            <h2 className="h1">Why {name(why.from)} → {name(why.to)}?</h2>
+            <p>
+              Simplifying combines everyone's debts into the fewest payments. {name(why.from)} ends up paying{' '}
+              {name(why.to)} {formatAmount(why.amountMinor, cur)} instead of these, expense by expense:
+            </p>
+            <TransferList
+              transfers={b.raw.filter((t) => t.from === why.from || t.to === why.to)}
+              name={name}
+              currency={cur}
+            />
+            <p className="small text-muted">Everyone's net balance stays exactly the same either way.</p>
+            <button type="button" className="key key--primary key--block" onClick={() => setWhy(null)}>
+              Got it
+            </button>
+          </div>
+        )}
+      </Sheet>
     </div>
+  );
+}
+
+function TransferList({ transfers, name, currency }: { transfers: Transfer[]; name: (id: string) => string; currency: string }) {
+  return (
+    <ul className="log">
+      {transfers.map((t) => (
+        <li key={`${t.from}-${t.to}`} className="log__line" style={{ gridTemplateColumns: '1fr auto' }}>
+          <span>
+            {name(t.from)} → {name(t.to)}
+          </span>
+          <span className="amount">{formatAmount(t.amountMinor, currency)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

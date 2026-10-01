@@ -13,6 +13,8 @@ export class HttpError extends Error {
     readonly status: ContentfulStatusCode,
     readonly code: ApiErrorCode,
     message?: string,
+    /** Extra fields merged into the JSON body (e.g. validation issues, the current version on conflict). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message ?? code);
   }
@@ -34,7 +36,7 @@ export function requireUser(auth: Auth) {
 export async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
   const parsed = schema.safeParse(await c.req.json().catch(() => undefined));
   if (!parsed.success) {
-    throw Object.assign(new HttpError(400, 'invalid', parsed.error.issues[0]?.message), { issues: parsed.error.issues });
+    throw new HttpError(400, 'invalid', parsed.error.issues[0]?.message, { issues: parsed.error.issues });
   }
   return parsed.data;
 }

@@ -801,3 +801,297 @@ select.input {
   white-space: nowrap;
   color: var(--text-secondary);
 }
+
+/* ── Add expense form ────────────────────────────────────────── */
+.description-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.description-row .input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem;
+}
+
+.category-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border-chunky) solid var(--charcoal);
+}
+
+.amount-input:focus-within {
+  border-bottom-color: var(--primary);
+}
+
+.amount-input__currency {
+  flex: none;
+  min-width: var(--touch);
+  min-height: var(--touch);
+  padding: 0 var(--space-sm);
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+}
+
+.amount-input__field {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-amount-input);
+  font-variant-numeric: tabular-nums;
+  caret-color: var(--primary);
+}
+
+.amount-input__field::placeholder {
+  color: var(--charcoal);
+}
+
+.fx-line {
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}
+
+.summary-line {
+  line-height: 2.4;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-md);
+  margin: 0 2px;
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--primary);
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.chip--button {
+  padding: 0 var(--space-md);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chip--button[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chip input[type='date'] {
+  min-height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.textarea {
+  min-height: 96px;
+  padding: var(--space-md);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.problem {
+  color: var(--warning);
+  font-size: var(--text-small);
+}
+
+/* Sheet rows: a member with an input or a checkbox. */
+.member-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 56px;
+  border-bottom: var(--border-hairline) solid var(--surface-raised);
+}
+
+.member-line__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-line__amount {
+  width: 9ch;
+  min-height: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-line__owed {
+  min-width: 10ch;
+  text-align: right;
+  font-size: var(--text-small);
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--crt-green);
+  flex: none;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.stepper button {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 0;
+  color: var(--primary);
+  font-size: 1.25rem;
+}
+
+.stepper output {
+  min-width: 3ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.category-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-xs);
+  background: var(--surface-raised);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small);
+  color: var(--text);
+}
+
+.category-grid button[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── Expense rows ────────────────────────────────────────────── */
+.date-stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 48px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  line-height: 1;
+}
+
+.date-stub__day {
+  font-size: 1.5rem;
+}
+
+.date-stub__month {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+}
+
+/* ── Diff lines (edit history) ───────────────────────────────── */
+.diff {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+}
+
+.diff__head {
+  margin-top: var(--space-md);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.diff__line {
+  display: grid;
+  grid-template-columns: 2ch 9ch 1fr;
+  gap: var(--space-xs);
+  overflow-wrap: anywhere;
+}
+
+.diff__line--del {
+  color: var(--you-owe);
+}
+
+.diff__line--add {
+  color: var(--owed-to-you);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-xs) var(--space-lg);
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--text-muted);
+}
+
+.kv dd {
+  margin: 0;
+  text-align: right;
+}
+
+.link-button {
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}

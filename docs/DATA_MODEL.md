@@ -284,7 +284,8 @@ the same transaction as the change itself.
 | entity_type, entity_id | nullable | Link to the expense/settlement/member |
 | revision_id | uuid FK → revisions, nullable | |
 | payload | jsonb | Display data (names/amounts at the time) |
-| created_at | timestamptz | Default `clock_timestamp()` (not `now()`), so events written in one transaction keep their order |
+| seq | bigint identity | Insertion order; the feed sorts by this (timestamps can tie within a microsecond) |
+| created_at | timestamptz | Default `clock_timestamp()` (not `now()`), so events in one transaction get distinct real times |
 
 Push fan-out reads the event, works out recipients (involved members, minus actor, minus muted,
 minus placeholders) and sends.

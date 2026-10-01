@@ -107,6 +107,15 @@ and transparency beat feature breadth. No growth/monetization goals.
 - Expenses already covered by a settlement **remain editable**; balances simply recalculate and
   the history explains the change.
 
+### Expense details (decided while building, 2026-10-01)
+- Delete and restore are separate actions that also check `version`; editing a deleted expense
+  is refused until it's restored. Deleted expenses are listed under "Show deleted expenses".
+- In a foreign-currency expense, multiple-payer and exact-split amounts are entered in the
+  group currency (they must add up to the converted total).
+- Expense rows show your position: "you lent ₹X" (green), "you owe ₹X" (amber),
+  "not involved" or "no balance".
+- "why? ›" on a simplified debt A → B lists the raw debts owed by A or owed to B.
+
 ### Recurring expenses
 - An expense can repeat (e.g. monthly on the 1st).
 - On the due date the occurrence is **auto-created** using the **most recent split** of the series;

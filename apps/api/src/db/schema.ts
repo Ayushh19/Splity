@@ -411,10 +411,12 @@ export const activityEvents = pgTable(
     entityId: uuid('entity_id'),
     revisionId: uuid('revision_id').references(() => revisions.id),
     payload: jsonb('payload').notNull().default({}),
-    // clock_timestamp(), not now(): several events in one transaction must keep their order.
+    // Insertion order. Timestamps can tie (same microsecond), so the feed sorts by this.
+    seq: bigint('seq', { mode: 'number' }).notNull().generatedAlwaysAsIdentity(),
+    // clock_timestamp(), not now(): events in one transaction get distinct, real times.
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   },
-  (t) => [index('activity_events_group_time_idx').on(t.groupId, t.createdAt.desc())],
+  (t) => [index('activity_events_group_seq_idx').on(t.groupId, t.seq.desc())],
 );
 
 export const reminders = pgTable(

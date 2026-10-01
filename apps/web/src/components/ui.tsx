@@ -18,7 +18,7 @@ export function TopBar({ title, back, end }: { title?: ReactNode; back?: string;
   );
 }
 
-export function Avatar({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
+export function Avatar({ name, photoUrl }: { name: string; photoUrl?: string | null | undefined }) {
   return (
     <span className="avatar" aria-hidden="true">
       {photoUrl ? <img src={photoUrl} alt="" referrerPolicy="no-referrer" /> : initials(name)}

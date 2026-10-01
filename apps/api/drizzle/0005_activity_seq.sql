@@ -1,0 +1,3 @@
+DROP INDEX "activity_events_group_time_idx";--> statement-breakpoint
+ALTER TABLE "activity_events" ADD COLUMN "seq" bigint NOT NULL GENERATED ALWAYS AS IDENTITY (sequence name "activity_events_seq_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1);--> statement-breakpoint
+CREATE INDEX "activity_events_group_seq_idx" ON "activity_events" USING btree ("group_id","seq" DESC NULLS LAST);

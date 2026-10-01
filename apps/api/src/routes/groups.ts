@@ -428,7 +428,7 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
       .leftJoin(groupMembers, eq(groupMembers.id, activityEvents.actorMember))
       .leftJoin(users, eq(users.id, groupMembers.userId))
       .where(eq(activityEvents.groupId, groupId))
-      .orderBy(desc(activityEvents.createdAt))
+      .orderBy(desc(activityEvents.seq))
       .limit(100);
     return c.json(events.map((e) => ({ ...e, actorName: e.actorName ?? null })));
   });
