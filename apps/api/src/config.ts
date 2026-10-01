@@ -52,7 +52,7 @@ export function loadConfig(): Config {
             subject: process.env.VAPID_SUBJECT || 'mailto:admin@splity.local',
           }
         : null,
-    emailFrom: process.env.EMAIL_FROM ?? 'Splity <login@splity.local>',
+    emailFrom: process.env.EMAIL_FROM || 'Splity <onboarding@resend.dev>',
     appTimezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
     cronSecret: process.env.CRON_SECRET || null,
   };

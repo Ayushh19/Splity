@@ -3,7 +3,7 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { loadConfig } from './config';
 import { openDb } from './db/client';
-import { logMagicLink, resendMagicLink } from './email';
+import { logMagicLink, resendMagicLink, withDevFallback } from './email';
 import { createNotifier, webPushSender } from './services/push';
 import { createRecurringJob } from './services/recurring';
 import { todayIn } from '@splity/shared';
@@ -15,7 +15,9 @@ const auth = createAuth({
   baseUrl: config.baseUrl,
   secret: config.authSecret,
   google: config.google,
-  sendMagicLink: config.resendApiKey ? resendMagicLink(config.resendApiKey, config.emailFrom) : logMagicLink,
+  sendMagicLink: config.resendApiKey
+    ? withDevFallback(resendMagicLink(config.resendApiKey, config.emailFrom), process.env.NODE_ENV === 'production')
+    : logMagicLink,
 });
 const notifier = createNotifier(db, config.vapid ? webPushSender(config.vapid) : null);
 const recurring = createRecurringJob(db, notifier);
@@ -46,5 +48,6 @@ serve({ fetch: app.fetch, port }, () => {
   console.log(`Splity API on http://localhost:${port} (public origin ${config.baseUrl})`);
   if (!config.google) console.log('Google sign-in disabled: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
   if (!config.resendApiKey) console.log('Magic links are printed here (no RESEND_API_KEY)');
+  else console.log(`Magic links are emailed from ${config.emailFrom}`);
   if (!config.vapid) console.log('Push notifications disabled: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY');
 });
