@@ -1,11 +1,16 @@
 import { displayName as displayNameSchema, groupName, type GroupDetail, type MemberView } from '@splity/shared';
-import { Copy, LogOut, RotateCcw, Share2 } from 'lucide-react';
+import { formatAmount } from '@splity/shared';
+import { Archive, ArchiveRestore, Copy, GitMerge, LogOut, RotateCcw, Share2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Avatar, Badge, Sheet, Toggle, TopBar, useShareLink, useToast } from '../components/ui';
 import {
+  ApiError,
   errorMessage,
   useAddPlaceholder,
+  useArchiveGroup,
+  useMergeMember,
+  useUnarchiveGroup,
   useGroup,
   useLeaveGroup,
   useMuteGroup,
@@ -50,6 +55,7 @@ export function GroupSettings() {
       <MuteSetting group={g} />
       {g.inviteUrl && canWrite && <InviteLink group={g} isAdmin={isAdmin} />}
       <Members group={g} isAdmin={isAdmin} canWrite={canWrite} />
+      {g.you.status === 'active' && g.you.role === 'admin' && <ArchiveSection group={g} />}
       {canWrite && <LeaveGroup group={g} />}
     </main>
   );
@@ -266,12 +272,17 @@ function MemberSheet({ group, member, onClose }: { group: GroupDetail; member: M
   const promote = usePromoteMember(group.id);
   const undoClaim = useUndoClaim(group.id);
   const remove = useRemoveMember(group.id);
+  const merge = useMergeMember(group.id);
   const toast = useToast();
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const busy = promote.isPending || undoClaim.isPending || remove.isPending;
+  const [merging, setMerging] = useState(false);
+  const [mergeInto, setMergeInto] = useState<string | null>(null);
+  const busy = promote.isPending || undoClaim.isPending || remove.isPending || merge.isPending;
 
   const close = () => {
     setConfirmRemove(false);
+    setMerging(false);
+    setMergeInto(null);
     onClose();
   };
   const run = async (action: Promise<unknown>, done: string) => {
@@ -286,10 +297,49 @@ function MemberSheet({ group, member, onClose }: { group: GroupDetail; member: M
 
   if (!member) return null;
   const willDelete = member.isPlaceholder && !member.hasHistory;
+  const mergeTargets = group.members.filter((m) => !m.isPlaceholder && m.status !== 'merged' && m.id !== member.id);
+  const target = mergeTargets.find((m) => m.id === mergeInto);
 
   return (
     <Sheet open onClose={close} label={`Manage ${member.displayName}`}>
-      {confirmRemove ? (
+      {merging ? (
+        <div className="stack">
+          <h2 className="h1">Merge "{member.displayName}" into…</h2>
+          <p className="small text-muted">
+            Use this when the same person ended up twice. Everything of "{member.displayName}" moves to the person you pick; totals
+            don't change.
+          </p>
+          <div role="radiogroup" aria-label="Merge into">
+            {mergeTargets.map((m) => (
+              <button key={m.id} type="button" role="radio" aria-checked={mergeInto === m.id} className="row" onClick={() => setMergeInto(m.id)}>
+                <span className={`led ${mergeInto === m.id ? 'led--green' : ''}`} aria-hidden="true" />
+                <span className="row__main row__title">
+                  {m.displayName}
+                  {m.isYou && <span className="text-muted"> (you)</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+          {target && (
+            <p className="banner">
+              {member.hasHistory
+                ? `"${member.displayName}"'s expenses and payments become ${target.displayName}'s. Where both are on the same expense their shares are added together, and any payment between them is deleted. This can't be undone.`
+                : `"${member.displayName}" isn't in any expense yet, so this just removes the duplicate.`}
+            </p>
+          )}
+          <button
+            type="button"
+            className="key key--primary key--block"
+            disabled={!target || busy}
+            onClick={() => run(merge.mutateAsync({ memberId: member.id, intoMemberId: target!.id }), `Merged into ${target!.displayName}`)}
+          >
+            Merge
+          </button>
+          <button type="button" className="key key--secondary key--block" onClick={() => setMerging(false)}>
+            Back
+          </button>
+        </div>
+      ) : confirmRemove ? (
         <div className="stack">
           <h2 className="h1">Remove {member.displayName}?</h2>
           <p>
@@ -312,6 +362,11 @@ function MemberSheet({ group, member, onClose }: { group: GroupDetail; member: M
               Make admin
             </button>
           )}
+          {member.isPlaceholder && mergeTargets.length > 0 && (
+            <button type="button" className="key key--secondary key--block" disabled={busy} onClick={() => setMerging(true)}>
+              <GitMerge size={18} aria-hidden="true" /> Merge into…
+            </button>
+          )}
           {member.claimed && member.role !== 'admin' && (
             <button type="button" className="key key--secondary key--block" disabled={busy} onClick={() => run(undoClaim.mutateAsync(member.id), 'Claim undone')}>
               Undo claim
@@ -323,6 +378,105 @@ function MemberSheet({ group, member, onClose }: { group: GroupDetail; member: M
         </div>
       )}
     </Sheet>
+  );
+}
+
+function ArchiveSection({ group }: { group: GroupDetail }) {
+  const archive = useArchiveGroup(group.id);
+  const unarchive = useUnarchiveGroup(group.id);
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const names = new Map(group.members.map((m) => [m.id, m.displayName]));
+  const unsettled =
+    archive.error instanceof ApiError && archive.error.body?.error === 'nonzero_balance'
+      ? ((archive.error.body as unknown as { unsettled: { memberId: string; netMinor: number }[] }).unsettled ?? [])
+      : [];
+
+  if (group.archived) {
+    return (
+      <section>
+        <button
+          type="button"
+          className="key key--secondary key--block"
+          disabled={unarchive.isPending}
+          onClick={async () => {
+            try {
+              await unarchive.mutateAsync();
+              toast('Group unarchived');
+            } catch (e) {
+              toast(errorMessage(e), 'error');
+            }
+          }}
+        >
+          <ArchiveRestore size={18} aria-hidden="true" /> Unarchive group
+        </button>
+        <p className="field__help">Makes the group editable again for everyone.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <button type="button" className="key key--text" onClick={() => setOpen(true)}>
+        <Archive size={18} aria-hidden="true" /> Archive group
+      </button>
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          archive.reset();
+        }}
+        label="Archive group"
+      >
+        <div className="stack">
+          <h2 className="h1">Archive {group.name}?</h2>
+          <p>
+            The group becomes read-only for everyone and moves to History. Nothing is deleted, and an admin can unarchive it later.
+            Everyone needs to be settled up first.
+          </p>
+          {unsettled.length > 0 && (
+            <div className="banner" role="alert">
+              <p>Not settled yet:</p>
+              <ul className="log">
+                {unsettled.map((u) => (
+                  <li key={u.memberId} className="log__line" style={{ gridTemplateColumns: '1fr auto' }}>
+                    <span>{names.get(u.memberId) ?? 'Former member'}</span>
+                    <span className={`amount ${u.netMinor > 0 ? 'money--owed' : 'money--owe'}`}>
+                      {u.netMinor > 0 ? '+' : '\u2212'}
+                      {formatAmount(Math.abs(u.netMinor), group.currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {archive.isError && unsettled.length === 0 && (
+            <p className="banner banner--error" role="alert">
+              {errorMessage(archive.error)}
+            </p>
+          )}
+          <button
+            type="button"
+            className="key key--primary key--block"
+            disabled={archive.isPending}
+            onClick={async () => {
+              try {
+                await archive.mutateAsync();
+                toast(`${group.name} archived`);
+                setOpen(false);
+              } catch {
+                // shown in the sheet
+              }
+            }}
+          >
+            Archive
+          </button>
+          <button type="button" className="key key--secondary key--block" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      </Sheet>
+    </section>
   );
 }
 

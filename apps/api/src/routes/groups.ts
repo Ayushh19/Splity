@@ -2,6 +2,7 @@ import {
   addPlaceholder,
   createGroup,
   MAX_GROUP_MEMBERS,
+  mergeMember,
   updateGroup,
   type GroupDetail,
   type GroupSummary,
@@ -14,6 +15,8 @@ import type { Db, DbOrTx } from '../db/client';
 import { activityEvents, groupMembers, groups, users } from '../db/schema';
 import { body, forbidden, HttpError, requireUser, type AppEnv } from '../http';
 import { logActivity } from '../services/activity';
+import { groupBalances } from '../services/balances';
+import { mergeMembers } from '../services/merge';
 import { memberLedgers } from '../services/ledger';
 import {
   activeMemberCount,
@@ -105,8 +108,12 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
   const app = new Hono<AppEnv>();
   app.use('*', requireUser(auth));
 
-  /** Home list: groups I'm in, plus ones I was removed from but still have a balance in. */
+  /**
+   * Home list: groups I'm in, plus ones I was removed from but still have a balance in.
+   * `?archived=1`: the History list of archived groups instead.
+   */
   app.get('/', async (c) => {
+    const archived = c.req.query('archived') === '1';
     const mine = await db
       .select({ group: groups, memberId: groupMembers.id, status: groupMembers.status })
       .from(groupMembers)
@@ -118,7 +125,7 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
           eq(groups.isDirect, false),
         ),
       );
-    const visible = mine.filter((m) => m.group.archivedAt === null);
+    const visible = mine.filter((m) => (m.group.archivedAt !== null) === archived);
     const groupIds = visible.map((m) => m.group.id);
     if (groupIds.length === 0) return c.json([] satisfies GroupSummary[]);
 
@@ -143,11 +150,12 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
         id: m.group.id,
         name: m.group.name,
         currency: m.group.currency,
+        archived: m.group.archivedAt !== null,
         yourNetMinor: ledgers.get(m.memberId)?.netMinor ?? 0,
         memberCount: countOf.get(m.group.id) ?? 0,
         youAreRemoved: m.status === 'removed',
       }))
-      .filter((s) => !s.youAreRemoved || s.yourNetMinor !== 0)
+      .filter((s) => archived || !s.youAreRemoved || s.yourNetMinor !== 0)
       .sort((a, b) => (lastAt.get(b.id) ?? 0) - (lastAt.get(a.id) ?? 0));
     return c.json(summaries);
   });
@@ -353,6 +361,77 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
         });
       }
       return groupDetail(tx, group, me, baseUrl);
+    });
+    return c.json(detail);
+  });
+
+  /** Admin merges a duplicate placeholder into a real member (SPEC › Merge). */
+  app.post('/:groupId/members/:memberId/merge', async (c) => {
+    const { groupId, memberId } = c.req.param();
+    const { intoMemberId } = await body(c, mergeMember);
+    const detail = await db.transaction(async (tx) => {
+      const me = await requireMember(tx, groupId, c.var.userId);
+      requireAdmin(me);
+      const group = await lockGroup(tx, groupId);
+      assertWritable(group);
+      assertNotDirect(group);
+      const source = await getMemberInGroup(tx, groupId, memberId);
+      const target = await getMemberInGroup(tx, groupId, intoMemberId);
+      const [sourceName, targetName] = [source.displayName, await memberName(tx, target.id)];
+      const counts = await mergeMembers(tx, group, source, target, me);
+      await logActivity(tx, {
+        groupId,
+        actorMember: me.id,
+        type: 'member.merged',
+        entityType: 'member',
+        entityId: target.id,
+        payload: { from: sourceName, into: targetName, ...counts },
+      });
+      return groupDetail(tx, group, me, baseUrl);
+    });
+    return c.json(detail);
+  });
+
+  /** Admin archives the group for everyone once every balance is zero. */
+  app.post('/:groupId/archive', async (c) => {
+    const groupId = c.req.param('groupId');
+    const detail = await db.transaction(async (tx) => {
+      const me = await requireMember(tx, groupId, c.var.userId);
+      requireAdmin(me);
+      const group = await lockGroup(tx, groupId);
+      assertWritable(group);
+      if (group.isDirect) throw forbidden("1-on-1 groups can't be archived");
+      const unsettled = (await groupBalances(tx, groupId)).net.filter((n) => n.netMinor !== 0);
+      if (unsettled.length > 0) {
+        throw new HttpError(409, 'nonzero_balance', 'Everyone needs to be settled up before the group can be archived', {
+          unsettled,
+        });
+      }
+      const [updated] = await tx
+        .update(groups)
+        .set({ archivedAt: new Date(), archivedBy: me.id })
+        .where(eq(groups.id, groupId))
+        .returning();
+      await logActivity(tx, { groupId, actorMember: me.id, type: 'group.archived', entityType: 'group', entityId: groupId });
+      return groupDetail(tx, updated!, me, baseUrl);
+    });
+    return c.json(detail);
+  });
+
+  app.post('/:groupId/unarchive', async (c) => {
+    const groupId = c.req.param('groupId');
+    const detail = await db.transaction(async (tx) => {
+      const me = await requireMember(tx, groupId, c.var.userId);
+      requireAdmin(me);
+      const group = await lockGroup(tx, groupId);
+      if (!group.archivedAt) return groupDetail(tx, group, me, baseUrl);
+      const [updated] = await tx
+        .update(groups)
+        .set({ archivedAt: null, archivedBy: null })
+        .where(eq(groups.id, groupId))
+        .returning();
+      await logActivity(tx, { groupId, actorMember: me.id, type: 'group.unarchived', entityType: 'group', entityId: groupId });
+      return groupDetail(tx, updated!, me, baseUrl);
     });
     return c.json(detail);
   });

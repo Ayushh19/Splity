@@ -70,6 +70,23 @@ and transparency beat feature breadth. No growth/monetization goals.
 ### Visibility
 - Every member of a group sees **every** expense, settlement and activity in that group.
 
+### Merge, archive, account deletion (decided 2026-10-01)
+- **Merge:** admin only; a placeholder (active or removed) into a member with an account.
+  Its expense lines and payments move over. If both were in the same expense their amounts
+  are added; an **equal** split then becomes **exact** (so editing it later can't silently
+  re-split), a shares split adds the shares. A payment between the two would be a
+  self-payment, so it's deleted. Balances of everyone else don't change. Each touched expense
+  and payment gets a `merge_repoint` history entry; the feed says "merged "Rahul" into Rahul K".
+- **Archive:** admin only, refused with the list of unsettled members until every net is 0.
+  Archived groups are read-only (reading still works), their invite link stops working, and
+  they appear under Account › History. Admins can unarchive.
+- **Account deletion** (Account › Delete account, type DELETE): refused with the list of groups
+  that still have a balance. Otherwise: email replaced with a `.invalid` tombstone, name becomes
+  "Deleted user", photo and UPI ID cleared, sign-ins, sessions and push devices deleted; active
+  memberships become "removed" (muted), admin passes to the longest-standing member (a group
+  with nobody else left simply has no admin). Signing up again with the same email creates a
+  new, empty account.
+
 ## 3. Expenses
 
 ### Fields

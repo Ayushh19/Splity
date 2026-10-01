@@ -72,6 +72,12 @@ export function GroupDetail() {
         }
       />
 
+      {g.archived && (
+        <p className="banner" role="status">
+          <Badge>Archived</Badge> This group is read-only.{' '}
+          {g.you.role === 'admin' && g.you.status === 'active' && <Link to={`/groups/${g.id}/settings`}>Unarchive in settings</Link>}
+        </p>
+      )}
       {g.you.status === 'removed' && (
         <p className="banner" role="status">
           You were removed from this group. You can still see it and settle up.

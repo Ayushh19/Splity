@@ -30,6 +30,9 @@ export type UpdateGroup = z.infer<typeof updateGroup>;
 export const addPlaceholder = z.object({ displayName }).strict();
 export type AddPlaceholder = z.infer<typeof addPlaceholder>;
 
+export const mergeMember = z.object({ intoMemberId: z.uuid() }).strict();
+export type MergeMember = z.infer<typeof mergeMember>;
+
 export const joinInvite = z
   .object({
     /** Claim this placeholder; omit to join as a new member. */
@@ -65,6 +68,7 @@ export interface GroupSummary {
   id: string;
   name: string;
   currency: string;
+  archived: boolean;
   /** Your net balance in this group. */
   yourNetMinor: Minor;
   memberCount: number;

@@ -6,6 +6,7 @@ import type { Auth } from './auth';
 import type { Db } from './db/client';
 import { users } from './db/schema';
 import { body, HttpError, requireUser, type AppEnv } from './http';
+import { accountRoutes } from './routes/account';
 import { expenseRoutes } from './routes/expenses';
 import { groupNotificationRoutes, pushRoutes } from './routes/notifications';
 import { groupRoutes } from './routes/groups';
@@ -77,6 +78,7 @@ export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
     return c.json(await profileOf(c.var.userId));
   });
 
+  app.route('/me', accountRoutes({ db, auth }));
   app.route('/groups', groupRoutes({ db, auth, baseUrl }));
   app.route('/groups/:groupId', expenseRoutes({ db, auth, notifier }));
   app.route('/groups/:groupId', settlementRoutes({ db, auth, notifier }));

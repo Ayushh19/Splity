@@ -36,6 +36,14 @@ function describe(e: ActivityEvent): string {
       return 'left the group';
     case 'admin.auto_promoted':
       return `${str(p.name)} is now an admin`;
+    case 'member.merged':
+      return `merged "${str(p.from)}" into ${str(p.into)}`;
+    case 'member.account_deleted':
+      return 'deleted their account';
+    case 'group.archived':
+      return 'archived the group';
+    case 'group.unarchived':
+      return 'unarchived the group';
     case 'expense.created':
     case 'expense.updated':
     case 'expense.deleted':

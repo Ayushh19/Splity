@@ -1,9 +1,11 @@
 import { profileUpdate, type Profile } from '@splity/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { BellRing, LogOut, Share } from 'lucide-react';
+import { formatAmount } from '@splity/shared';
+import { Archive, BellRing, LogOut, Share, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Toggle, TopBar, useToast } from '../components/ui';
-import { errorMessage, useAuthConfig, useMe, useUpdateProfile } from '../lib/api';
+import { Sheet, Toggle, TopBar, useToast } from '../components/ui';
+import { errorMessage, useAuthConfig, useDeleteAccount, useDeletionCheck, useMe, useUpdateProfile } from '../lib/api';
 import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
 import { authClient } from '../lib/auth-client';
 import { CURRENCIES } from '../lib/format';
@@ -26,10 +28,16 @@ export function Account() {
       <TopBar title="Account" />
       {me.data && <ProfileForm profile={me.data} />}
       <Notifications />
+      <Link to="/history" className="row">
+        <Archive size={20} aria-hidden="true" />
+        <span className="row__main row__title">History</span>
+        <span className="text-muted">›</span>
+      </Link>
       <button type="button" className="key key--secondary" onClick={signOut}>
         <LogOut size={20} aria-hidden="true" />
         Sign out
       </button>
+      <DeleteAccount />
     </main>
   );
 }
@@ -151,6 +159,94 @@ function Notifications() {
       <p className="field__help">
         You'll hear about expenses and payments you're part of, and reminders. Mute a noisy group in its settings.
       </p>
+    </section>
+  );
+}
+
+/** Delete account: blocked while any balance is non-zero; typed confirmation (SPEC › Accounts). */
+function DeleteAccount() {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const check = useDeletionCheck(open);
+  const del = useDeleteAccount();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  async function onDelete() {
+    try {
+      await disablePush().catch(() => undefined);
+      await del.mutateAsync();
+      queryClient.clear();
+      queryClient.setQueryData(['me'], null);
+      toast('Your account was deleted');
+      void navigate('/sign-in', { replace: true });
+    } catch {
+      void check.refetch();
+    }
+  }
+
+  return (
+    <section>
+      <button type="button" className="key key--text" style={{ color: 'var(--danger-text)' }} onClick={() => setOpen(true)}>
+        <Trash2 size={18} aria-hidden="true" /> Delete account
+      </button>
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setTyped('');
+        }}
+        label="Delete account"
+      >
+        <div className="stack">
+          <h2 className="h1">Delete your account?</h2>
+          {check.isPending ? (
+            <div className="skeleton" style={{ height: 80 }} />
+          ) : check.data && !check.data.canDelete ? (
+            <>
+              <p>Settle up first. You still have a balance in:</p>
+              <ul className="list">
+                {check.data.blockers.map((b) => (
+                  <li key={b.groupId}>
+                    <Link to={`/groups/${b.groupId}?tab=balances`} className="row" onClick={() => setOpen(false)}>
+                      <span className="row__main row__title">{b.isDirect ? '1-on-1' : b.name}</span>
+                      <span className={`amount ${b.netMinor > 0 ? 'money--owed' : 'money--owe'}`}>
+                        {b.netMinor > 0 ? 'owed ' : 'you owe '}
+                        {formatAmount(Math.abs(b.netMinor), b.currency)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <>
+              <p>
+                Your name, email, photo, UPI ID and devices are removed. Past expenses stay so everyone else's balances still add up,
+                and you'll show as "Deleted user". This can't be undone.
+              </p>
+              <div className="field">
+                <label className="label field__label" htmlFor="confirm-delete">
+                  Type DELETE to confirm
+                </label>
+                <input id="confirm-delete" className="input" autoCapitalize="characters" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} />
+              </div>
+              {del.isError && (
+                <p className="banner banner--error" role="alert">
+                  {errorMessage(del.error)}
+                </p>
+              )}
+              <button type="button" className="key key--danger key--block" disabled={typed !== 'DELETE' || del.isPending} onClick={onDelete}>
+                Delete my account
+              </button>
+            </>
+          )}
+          <button type="button" className="key key--secondary key--block" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      </Sheet>
     </section>
   );
 }

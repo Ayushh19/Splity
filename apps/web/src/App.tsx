@@ -13,6 +13,7 @@ import { AddExpense, EditExpense, ExpenseDetail, PickGroup } from './screens/Exp
 import { EditSettlement, SettlementDetail, SettleUp } from './screens/SettleScreens';
 import { GroupDetail } from './screens/GroupDetail';
 import { GroupSettings } from './screens/GroupSettings';
+import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Join } from './screens/Join';
 import { SignIn } from './screens/SignIn';
@@ -43,6 +44,7 @@ export function App() {
               <Route path="activity" element={<ComingSoon title="Activity" icon={Activity} line="> LOG EMPTY" text="A feed across all your groups is coming. Each group's activity is in its Activity tab." />} />
               <Route path="add" element={<PickGroup />} />
               <Route path="account" element={<Account />} />
+              <Route path="history" element={<History />} />
             </Route>
             {/* Full-screen forms: no tab bar. */}
             <Route path="/groups/new" element={<Gate when="signed-in" requireName><CreateGroup /></Gate>} />

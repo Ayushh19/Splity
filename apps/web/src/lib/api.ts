@@ -299,3 +299,50 @@ export function useSendReminder(groupId: string) {
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'reminders'] }),
   });
 }
+
+// ── Group lifecycle & account ──────────────────────────────────
+
+export const useMergeMember = (groupId: string) =>
+  useGroupMutation(groupId, (vars: { memberId: string; intoMemberId: string }) =>
+    api<GroupDetail>(`/groups/${groupId}/members/${vars.memberId}/merge`, json('POST', { intoMemberId: vars.intoMemberId })),
+  );
+
+function useArchiveMutation(groupId: string, action: 'archive' | 'unarchive') {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<GroupDetail>(`/groups/${groupId}/${action}`, { method: 'POST' }),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(['groups', groupId], detail);
+      void queryClient.invalidateQueries({ queryKey: ['groups'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ['archived-groups'] });
+      void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'activity'] });
+    },
+  });
+}
+export const useArchiveGroup = (groupId: string) => useArchiveMutation(groupId, 'archive');
+export const useUnarchiveGroup = (groupId: string) => useArchiveMutation(groupId, 'unarchive');
+
+export function useArchivedGroups() {
+  return useQuery({ queryKey: ['archived-groups'], queryFn: () => api<GroupSummary[]>('/groups?archived=1') });
+}
+
+export interface DeletionBlocker {
+  groupId: string;
+  name: string;
+  currency: string;
+  isDirect: boolean;
+  netMinor: number;
+}
+
+export function useDeletionCheck(enabled: boolean) {
+  return useQuery({
+    queryKey: ['deletion-check'],
+    queryFn: () => api<{ canDelete: boolean; blockers: DeletionBlocker[] }>('/me/deletion-check'),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+export function useDeleteAccount() {
+  return useMutation({ mutationFn: () => api<null>('/me/delete', json('POST', { confirm: 'DELETE' })) });
+}
