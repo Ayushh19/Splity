@@ -8,6 +8,7 @@ import {
   useAddPlaceholder,
   useGroup,
   useLeaveGroup,
+  useMuteGroup,
   usePromoteMember,
   useRemoveMember,
   useResetInvite,
@@ -46,6 +47,7 @@ export function GroupSettings() {
       )}
       <RenameForm group={g} disabled={!canWrite} />
       <SimplifySetting group={g} disabled={!canWrite} />
+      <MuteSetting group={g} />
       {g.inviteUrl && canWrite && <InviteLink group={g} isAdmin={isAdmin} />}
       <Members group={g} isAdmin={isAdmin} canWrite={canWrite} />
       {canWrite && <LeaveGroup group={g} />}
@@ -104,6 +106,21 @@ function SimplifySetting({ group, disabled }: { group: GroupDetail; disabled: bo
         On: fewest payments to settle everyone. Off: who owes whom, expense by expense. Only changes the view, for
         everyone in the group.
       </p>
+    </section>
+  );
+}
+
+function MuteSetting({ group }: { group: GroupDetail }) {
+  const mute = useMuteGroup(group.id);
+  return (
+    <section>
+      <Toggle
+        label={<span className="label">Mute notifications</span>}
+        checked={group.you.muted}
+        disabled={mute.isPending}
+        onChange={(muted) => mute.mutate(muted)}
+      />
+      <p className="field__help">No pushes from this group on any of your devices. Reminders from friends still come through.</p>
     </section>
   );
 }

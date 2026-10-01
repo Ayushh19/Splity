@@ -165,7 +165,18 @@ and transparency beat feature breadth. No growth/monetization goals.
 - **Removed members** can still record and change payments they're part of, nothing else.
 - **UPI button** appears only when you are the payer, the group is in INR and the receiver has
   a UPI ID; payment isn't verified, so the user records it afterwards.
-- **Reminders** ship with push notifications (they need push to be delivered).
+- **Reminders:** "Remind" appears on "owes you" rows for members with an account. A reminder is
+  pushed even if they muted the group (it's direct and rate-limited). If they have no device with
+  notifications on, nothing is recorded and the sender is told to message them directly, so the
+  24 h window isn't used up.
+
+### Push details (decided 2026-10-01)
+- Push is per device: turned on from Account › Notifications. Signing out turns it off for that
+  device; a device that signs into another account moves to that account.
+- On iPhone, Account explains "Add to Home Screen" first (iOS only allows push for installed PWAs).
+- Expense notifications include the recipient's own position ("You owe ₹1,000.00"); people taken
+  off an expense by an edit are told. Notifications for the same expense/payment replace each other.
+- Subscriptions the push service reports as expired are deleted automatically.
 
 ## 6. Activity & Notifications
 

@@ -6,3 +6,4 @@ export * from './schemas';
 export * from './groups';
 export * from './expenses';
 export * from './settlements';
+export * from './notifications';

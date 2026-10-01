@@ -10,8 +10,19 @@ import { HandCoins, Plus, Receipt, Settings, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ActivityLog } from '../components/ActivityLog';
-import { Avatar, Badge, EmptyState, Money, Sheet, Toggle, TopBar, useShareLink } from '../components/ui';
-import { errorMessage, useBalances, useExpenses, useGroup, useGroupActivity, useSettlements, useUpdateGroup } from '../lib/api';
+import { Avatar, Badge, EmptyState, Money, Sheet, Toggle, TopBar, useShareLink, useToast } from '../components/ui';
+import {
+  ApiError,
+  errorMessage,
+  useBalances,
+  useExpenses,
+  useGroup,
+  useGroupActivity,
+  useReminders,
+  useSendReminder,
+  useSettlements,
+  useUpdateGroup,
+} from '../lib/api';
 import { CategoryIcon, nameLookup } from '../lib/expenses';
 import { signedAmount } from '../lib/format';
 
@@ -318,12 +329,17 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
                   <span className="row__end stack stack--sm" style={{ alignItems: 'flex-end' }}>
                     <Money netMinor={youOwe ? -1 : 1}>{formatAmount(t.amountMinor, cur)}</Money>
                     {canSettle && (
-                      <Link
-                        to={`/groups/${group.id}/settle?from=${t.from}&to=${t.to}&amount=${t.amountMinor}`}
-                        className={`key key--compact ${youOwe ? 'key--primary' : 'key--secondary'}`}
-                      >
-                        {youOwe ? 'Settle' : 'Record'}
-                      </Link>
+                      <span className="input-row">
+                        {!youOwe && other && !other.isPlaceholder && group.you.status === 'active' && (
+                          <RemindButton groupId={group.id} member={other.id} name={other.displayName} />
+                        )}
+                        <Link
+                          to={`/groups/${group.id}/settle?from=${t.from}&to=${t.to}&amount=${t.amountMinor}`}
+                          className={`key key--compact ${youOwe ? 'key--primary' : 'key--secondary'}`}
+                        >
+                          {youOwe ? 'Settle' : 'Record'}
+                        </Link>
+                      </span>
                     )}
                   </span>
                 </li>
@@ -405,6 +421,41 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
         )}
       </Sheet>
     </div>
+  );
+}
+
+const hoursAgo = (iso: string) => Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000));
+
+/** Nudge someone who owes you; once a day per person (DESIGN.md › Balance row). */
+function RemindButton({ groupId, member, name }: { groupId: string; member: string; name: string }) {
+  const reminders = useReminders(groupId);
+  const send = useSendReminder(groupId);
+  const toast = useToast();
+  const recent = reminders.data?.find((r) => r.toMember === member);
+
+  if (recent) {
+    return (
+      <button type="button" className="key key--compact key--secondary" disabled title={`Reminded ${hoursAgo(recent.sentAt)}h ago`}>
+        Reminded {hoursAgo(recent.sentAt)}h ago
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="key key--compact key--secondary"
+      disabled={send.isPending}
+      onClick={async () => {
+        try {
+          const res = await send.mutateAsync(member);
+          toast(res.delivered ? `Reminder sent to ${name}` : `${name} hasn't turned on notifications. Message them directly.`, res.delivered ? 'ok' : 'error');
+        } catch (e) {
+          toast(e instanceof ApiError ? e.message : errorMessage(e), 'error');
+        }
+      }}
+    >
+      Remind
+    </button>
   );
 }
 

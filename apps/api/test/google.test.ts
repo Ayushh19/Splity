@@ -9,7 +9,7 @@ afterAll(() => t.close());
 
 describe('Google sign-in', () => {
   it('is advertised to the sign-in screen', async () => {
-    expect(await (await t.request('/api/config')).json()).toEqual({ google: true });
+    expect(await (await t.request('/api/config')).json()).toMatchObject({ google: true });
   });
 
   it('sends Google the configured redirect URI exactly', async () => {

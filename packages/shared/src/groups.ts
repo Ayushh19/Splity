@@ -80,7 +80,7 @@ export interface GroupDetail {
   archived: boolean;
   /** Full invite URL, or null for direct (1-on-1) groups. */
   inviteUrl: string | null;
-  you: { memberId: string; role: MemberRole; status: MemberStatus };
+  you: { memberId: string; role: MemberRole; status: MemberStatus; muted: boolean };
   members: MemberView[];
 }
 
@@ -106,7 +106,8 @@ export type ApiErrorCode =
   | 'already_claimed'
   | 'nonzero_balance'
   | 'last_member'
-  | 'conflict';
+  | 'conflict'
+  | 'rate_limited';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

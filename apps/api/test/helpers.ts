@@ -2,6 +2,8 @@ import { createApp } from '../src/app';
 import { createAuth } from '../src/auth';
 import { openDb } from '../src/db/client';
 import type { MagicLinkEmail } from '../src/email';
+import { createNotifier, type DeviceSubscription } from '../src/services/push';
+import type { PushPayload } from '@splity/shared';
 
 export const BASE_URL = 'http://localhost:3000';
 
@@ -18,7 +20,20 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
       outbox.push(email);
     },
   });
-  const app = createApp({ db, auth, baseUrl: BASE_URL, features: { google: Boolean(options.google) } });
+  /** Every push "delivered", with the endpoint it went to. Endpoints containing "gone" act expired. */
+  const pushes: { endpoint: string; payload: PushPayload }[] = [];
+  const notifier = createNotifier(db, async (sub: DeviceSubscription, payload: PushPayload) => {
+    if (sub.endpoint.includes('gone')) return 'gone';
+    pushes.push({ endpoint: sub.endpoint, payload });
+    return 'ok';
+  });
+  const app = createApp({
+    db,
+    auth,
+    baseUrl: BASE_URL,
+    notifier,
+    features: { google: Boolean(options.google), vapidPublicKey: 'test-vapid-public-key' },
+  });
 
   const request = (path: string, init: RequestInit = {}) =>
     app.request(path, { ...init, headers: { Origin: BASE_URL, ...init.headers } });
@@ -66,5 +81,5 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
     };
   }
 
-  return { app, db, outbox, request, signIn, user, close };
+  return { app, db, outbox, pushes, notifier, request, signIn, user, close };
 }

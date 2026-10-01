@@ -216,7 +216,7 @@ export async function recordChange(
   view: ExpenseView,
   action: 'create' | 'update' | 'delete' | 'restore',
   actorMember: string | null,
-): Promise<void> {
+): Promise<string> {
   const [revision] = await tx
     .insert(revisions)
     .values({
@@ -229,7 +229,7 @@ export async function recordChange(
     })
     .returning({ id: revisions.id });
   const type = ({ create: 'expense.created', update: 'expense.updated', delete: 'expense.deleted', restore: 'expense.restored' } as const)[action];
-  await logActivity(tx, {
+  return logActivity(tx, {
     groupId: group.id,
     actorMember,
     type,

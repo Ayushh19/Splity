@@ -12,6 +12,8 @@ import type {
   JoinInvite,
   Profile,
   ProfileUpdate,
+  ReminderResult,
+  ReminderView,
   SettlementDetail,
   SettlementInput,
   SettlementUpdate,
@@ -82,7 +84,7 @@ export function useUpdateProfile() {
 export function useAuthConfig() {
   return useQuery({
     queryKey: ['config'],
-    queryFn: () => api<{ google: boolean }>('/config'),
+    queryFn: () => api<{ google: boolean; push: boolean; vapidPublicKey: string | null }>('/config'),
     staleTime: Infinity,
   });
 }
@@ -279,3 +281,21 @@ export const useSettlementAction = (groupId: string, id: string) =>
       json('POST', vars.action === 'dispute' ? { version: vars.version, note: vars.note ?? null } : { version: vars.version }),
     ),
   );
+
+// ── Notifications ──────────────────────────────────────────────
+
+export const useMuteGroup = (groupId: string) =>
+  useGroupMutation(groupId, (muted: boolean) => api<GroupDetail>(`/groups/${groupId}/mute`, json('PUT', { muted })));
+
+/** Reminders I sent in this group in the last 24 hours. */
+export function useReminders(groupId: string) {
+  return useQuery({ queryKey: ['groups', groupId, 'reminders'], queryFn: () => api<ReminderView[]>(`/groups/${groupId}/reminders`) });
+}
+
+export function useSendReminder(groupId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (toMember: string) => api<ReminderResult>(`/groups/${groupId}/reminders`, json('POST', { toMember })),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['groups', groupId, 'reminders'] }),
+  });
+}

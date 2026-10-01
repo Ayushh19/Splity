@@ -96,7 +96,7 @@ export async function groupDetail(db: DbOrTx, group: Group, me: Member, baseUrl:
     simplifyDebts: group.simplifyDebts,
     archived: group.archivedAt !== null,
     inviteUrl: inviteUrl(baseUrl, group),
-    you: { memberId: me.id, role: me.role, status: me.status },
+    you: { memberId: me.id, role: me.role, status: me.status, muted: me.muted },
     members,
   };
 }

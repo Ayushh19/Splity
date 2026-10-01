@@ -1,34 +1,25 @@
-import {
-  expenseInput,
-  expenseUpdate,
-  netBalances,
-  rawDebts,
-  simplifyDebts,
-  versionBody,
-  type ExpenseDetail,
-  type ExpenseSnapshot,
-  type GroupBalances,
-  type LedgerSettlement,
-} from '@splity/shared';
+import { expenseInput, expenseUpdate, versionBody, type ExpenseDetail, type ExpenseSnapshot } from '@splity/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Auth } from '../auth';
 import type { Db, DbOrTx } from '../db/client';
-import { expenses, groupMembers, revisions, settlements, users } from '../db/schema';
+import { expenses, groupMembers, revisions, users } from '../db/schema';
 import { body, HttpError, requireUser, type AppEnv } from '../http';
 import {
-  groupOrder,
   loadExpense,
   loadExpenses,
   prepareExpense,
   recordChange,
   writeLines,
 } from '../services/expenses';
-import { assertWritable, effectiveName, getGroup, lockGroup, requireMember } from '../services/membership';
+import { groupBalances } from '../services/balances';
+import { assertWritable, effectiveName, lockGroup, requireMember } from '../services/membership';
+import type { Notifier } from '../services/push';
 
 export interface ExpenseRouteDeps {
   db: Db;
   auth: Auth;
+  notifier: Notifier;
 }
 
 /**
@@ -48,7 +39,7 @@ async function conflict(db: DbOrTx, groupId: string, expenseId: string): Promise
 }
 
 /** Mounted at /groups/:groupId. */
-export function expenseRoutes({ db, auth }: ExpenseRouteDeps) {
+export function expenseRoutes({ db, auth, notifier }: ExpenseRouteDeps) {
   const app = new Hono<AppEnv>();
   app.use('*', requireUser(auth));
 
@@ -85,10 +76,10 @@ export function expenseRoutes({ db, auth }: ExpenseRouteDeps) {
         .returning({ id: expenses.id });
       await writeLines(tx, row!.id, prepared);
       const view = await loadExpense(tx, groupId, row!.id);
-      await recordChange(tx, group, view, 'create', me.id);
-      return view;
+      return { view, activityId: await recordChange(tx, group, view, 'create', me.id) };
     });
-    return c.json(view, 201);
+    notifier.activity(view.activityId);
+    return c.json(view.view, 201);
   });
 
   app.get('/expenses/:expenseId', async (c) => {
@@ -155,10 +146,10 @@ export function expenseRoutes({ db, auth }: ExpenseRouteDeps) {
 
       await writeLines(tx, expenseId, prepared);
       const view = await loadExpense(tx, groupId, expenseId);
-      await recordChange(tx, group, view, 'update', me.id);
-      return view;
+      return { view, activityId: await recordChange(tx, group, view, 'update', me.id) };
     });
-    return c.json(view);
+    notifier.activity(view.activityId);
+    return c.json(view.view);
   });
 
   /** Soft delete; restorable. Body: { version }. */
@@ -200,37 +191,18 @@ export function expenseRoutes({ db, auth }: ExpenseRouteDeps) {
         .returning({ id: expenses.id });
       if (updated.length === 0) throw await conflict(tx, groupId, expenseId);
       const view = await loadExpense(tx, groupId, expenseId);
-      await recordChange(tx, group, view, deleted ? 'delete' : 'restore', me.id);
+      const activityId = await recordChange(tx, group, view, deleted ? 'delete' : 'restore', me.id);
+      return { view, activityId };
+    }).then(({ view, activityId }) => {
+      notifier.activity(activityId);
       return view;
     });
   }
 
-  /** Net, raw and simplified balances, computed with @splity/shared from the stored rows. */
   app.get('/balances', async (c) => {
     const groupId = c.req.param('groupId')!;
     await requireMember(db, groupId, c.var.userId, { allowRemoved: true });
-    const group = await getGroup(db, groupId);
-    const [ledger, settled, { members, order }] = await Promise.all([
-      loadExpenses(db, groupId, { deleted: false }),
-      db
-        .select({ from: settlements.fromMember, to: settlements.toMember, amountMinor: settlements.amountMinor })
-        .from(settlements)
-        .where(and(eq(settlements.groupId, groupId), isNull(settlements.deletedAt))),
-      groupOrder(db, groupId),
-    ]);
-    const settlementsLedger: LedgerSettlement[] = settled;
-    const net = netBalances(ledger, settlementsLedger);
-    const balances: GroupBalances = {
-      currency: group.currency,
-      simplifyDebts: group.simplifyDebts,
-      net: [...members.values()]
-        .filter((m) => m.status !== 'merged')
-        .sort((a, b) => a.sortKey - b.sortKey)
-        .map((m) => ({ memberId: m.id, netMinor: net.get(m.id) ?? 0 })),
-      raw: rawDebts(ledger, settlementsLedger, order),
-      simplified: simplifyDebts(net, order),
-    };
-    return c.json(balances);
+    return c.json(await groupBalances(db, groupId));
   });
 
   return app;

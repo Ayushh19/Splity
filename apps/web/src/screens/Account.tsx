@@ -1,9 +1,10 @@
 import { profileUpdate, type Profile } from '@splity/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
-import { TopBar, useToast } from '../components/ui';
-import { errorMessage, useMe, useUpdateProfile } from '../lib/api';
+import { BellRing, LogOut, Share } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Toggle, TopBar, useToast } from '../components/ui';
+import { errorMessage, useAuthConfig, useMe, useUpdateProfile } from '../lib/api';
+import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
 import { authClient } from '../lib/auth-client';
 import { CURRENCIES } from '../lib/format';
 
@@ -13,6 +14,8 @@ export function Account() {
   const queryClient = useQueryClient();
 
   async function signOut() {
+    // This device must stop getting the account's notifications.
+    await disablePush().catch(() => undefined);
     await authClient.signOut();
     queryClient.clear();
     queryClient.setQueryData(['me'], null);
@@ -22,6 +25,7 @@ export function Account() {
     <main className="screen screen--with-tabs">
       <TopBar title="Account" />
       {me.data && <ProfileForm profile={me.data} />}
+      <Notifications />
       <button type="button" className="key key--secondary" onClick={signOut}>
         <LogOut size={20} aria-hidden="true" />
         Sign out
@@ -99,5 +103,54 @@ function ProfileForm({ profile }: { profile: Profile }) {
         {update.isPending ? 'Saving…' : 'Save'}
       </button>
     </form>
+  );
+}
+
+function Notifications() {
+  const config = useAuthConfig();
+  const toast = useToast();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void pushState().then(setState);
+  }, []);
+
+  if (!config.data?.push || state === null) return null;
+
+  async function toggle(on: boolean) {
+    setBusy(true);
+    try {
+      const next = on ? await enablePush(config.data!.vapidPublicKey!) : await disablePush();
+      setState(next);
+      if (on && next === 'on') toast('Notifications on for this device');
+      if (on && next === 'denied') toast('Notifications are blocked in your browser settings', 'error');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not change notifications', 'error');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <section className="stack stack--sm" aria-labelledby="notif-label">
+      <h2 id="notif-label" className="label section-label">
+        <BellRing size={16} aria-hidden="true" /> Notifications
+      </h2>
+      {state === 'needs-install' ? (
+        <p className="banner">
+          To get notifications on iPhone, tap <Share size={14} aria-label="Share" /> then <strong>Add to Home Screen</strong>, and
+          open Splity from there.
+        </p>
+      ) : state === 'unsupported' ? (
+        <p className="text-muted small">This browser can't show notifications.</p>
+      ) : state === 'denied' ? (
+        <p className="banner">Notifications are blocked for Splity. Allow them in your browser or phone settings, then come back.</p>
+      ) : (
+        <Toggle label="Push notifications on this device" checked={state === 'on'} disabled={busy} onChange={toggle} />
+      )}
+      <p className="field__help">
+        You'll hear about expenses and payments you're part of, and reminders. Mute a noisy group in its settings.
+      </p>
+    </section>
   );
 }

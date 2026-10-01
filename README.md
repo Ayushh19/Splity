@@ -31,6 +31,9 @@ pnpm dev:api       # http://localhost:8787/api/health
 pnpm dev:web       # http://localhost:3000 (proxies /api to the API)
 ```
 
+Push notifications need VAPID keys in `apps/api/.env` (see `.env.example`); push works on
+`http://localhost` in Chrome/Firefox. To test on a phone, the app must be served over HTTPS.
+
 Sign in locally with any email: the magic link is printed in the `dev:api` console. Google
 sign-in turns on when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
 `GOOGLE_REDIRECT_URI` (here `http://localhost:3000`) must match the OAuth client's authorized

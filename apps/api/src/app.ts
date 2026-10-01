@@ -7,21 +7,24 @@ import type { Db } from './db/client';
 import { users } from './db/schema';
 import { body, HttpError, requireUser, type AppEnv } from './http';
 import { expenseRoutes } from './routes/expenses';
+import { groupNotificationRoutes, pushRoutes } from './routes/notifications';
 import { groupRoutes } from './routes/groups';
 import { settlementRoutes } from './routes/settlements';
 import { inviteRoutes } from './routes/invites';
+import type { Notifier } from './services/push';
 
 export interface AppDeps {
   db: Db;
   auth: Auth;
   /** Public origin of the app, used to build invite links. */
   baseUrl: string;
-  /** Which sign-in methods are configured, for the sign-in screen. */
-  features: { google: boolean };
+  notifier: Notifier;
+  /** What the client can offer: Google sign-in, and push (with the VAPID public key). */
+  features: { google: boolean; vapidPublicKey: string | null };
 }
 
 /** Runtime-agnostic app: served by src/server.ts locally, by a Vercel function in production. */
-export function createApp({ db, auth, baseUrl, features }: AppDeps) {
+export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
   const app = new Hono<AppEnv>().basePath('/api');
 
   app.onError((err, c) => {
@@ -52,7 +55,7 @@ export function createApp({ db, auth, baseUrl, features }: AppDeps) {
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
 
-  app.get('/config', (c) => c.json(features));
+  app.get('/config', (c) => c.json({ google: features.google, push: features.vapidPublicKey !== null, vapidPublicKey: features.vapidPublicKey }));
 
   app.get('/me', requireUser(auth), async (c) => {
     const profile = await profileOf(c.var.userId);
@@ -75,8 +78,10 @@ export function createApp({ db, auth, baseUrl, features }: AppDeps) {
   });
 
   app.route('/groups', groupRoutes({ db, auth, baseUrl }));
-  app.route('/groups/:groupId', expenseRoutes({ db, auth }));
-  app.route('/groups/:groupId', settlementRoutes({ db, auth }));
+  app.route('/groups/:groupId', expenseRoutes({ db, auth, notifier }));
+  app.route('/groups/:groupId', settlementRoutes({ db, auth, notifier }));
+  app.route('/groups/:groupId', groupNotificationRoutes({ db, auth, notifier, baseUrl }));
+  app.route('/push', pushRoutes({ db, auth }));
   app.route('/invites', inviteRoutes({ db, auth, baseUrl }));
 
   return app;

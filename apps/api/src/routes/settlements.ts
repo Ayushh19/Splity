@@ -19,10 +19,12 @@ import { groupMembers, revisions, settlements, users } from '../db/schema';
 import { body, forbidden, HttpError, notFound, requireUser, type AppEnv } from '../http';
 import { logActivity, type ActivityType } from '../services/activity';
 import { assertWritable, effectiveName, lockGroup, requireMember, type Group, type Member } from '../services/membership';
+import type { Notifier } from '../services/push';
 
 export interface SettlementRouteDeps {
   db: Db;
   auth: Auth;
+  notifier: Notifier;
 }
 
 type Row = typeof settlements.$inferSelect;
@@ -106,13 +108,13 @@ async function record(
   action: 'create' | 'update' | 'delete' | 'restore' | 'dispute',
   type: ActivityType,
   actor: Member,
-) {
+): Promise<string> {
   const [revision] = await tx
     .insert(revisions)
     .values({ entityType: 'settlement', entityId: view.id, version: view.version, action, actorMember: actor.id, snapshot: snapshotOf(view) })
     .returning({ id: revisions.id });
   const names = await membersById(tx, group.id, [view.fromMember, view.toMember]);
-  await logActivity(tx, {
+  return logActivity(tx, {
     groupId: group.id,
     actorMember: actor.id,
     type,
@@ -136,7 +138,7 @@ async function conflict(db: DbOrTx, groupId: string, id: string) {
 }
 
 /** Mounted at /groups/:groupId. */
-export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
+export function settlementRoutes({ db, auth, notifier }: SettlementRouteDeps) {
   const app = new Hono<AppEnv>();
   app.use('*', requireUser(auth));
 
@@ -170,10 +172,11 @@ export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
         .values({ groupId, ...input, recordedBy: me.id })
         .returning();
       const view = toView(row!);
-      await record(tx, group, view, 'create', 'settlement.recorded', me);
-      return view;
+      const activityId = await record(tx, group, view, 'create', 'settlement.recorded', me);
+      return { view, activityId };
     });
-    return c.json(view, 201);
+    notifier.activity(view.activityId);
+    return c.json(view.view, 201);
   });
 
   app.get('/settlements/:settlementId', async (c) => {
@@ -227,10 +230,11 @@ export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
         .returning();
       if (updated.length === 0) throw await conflict(tx, groupId, settlementId);
       const view = toView(updated[0]!);
-      await record(tx, group, view, 'update', 'settlement.updated', me);
-      return view;
+      const activityId = await record(tx, group, view, 'update', 'settlement.updated', me);
+      return { view, activityId };
     });
-    return c.json(view);
+    notifier.activity(view.activityId);
+    return c.json(view.view);
   });
 
   for (const [path, deleted] of [['delete', true], ['restore', false]] as const) {
@@ -261,10 +265,11 @@ export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
           .returning();
         if (updated.length === 0) throw await conflict(tx, groupId, settlementId);
         const view = toView(updated[0]!);
-        await record(tx, group, view, deleted ? 'delete' : 'restore', deleted ? 'settlement.deleted' : 'settlement.restored', me);
-        return view;
+        const activityId = await record(tx, group, view, deleted ? 'delete' : 'restore', deleted ? 'settlement.deleted' : 'settlement.restored', me);
+        return { view, activityId };
       });
-      return c.json(view);
+      notifier.activity(view.activityId);
+      return c.json(view.view);
     });
   }
 
@@ -286,10 +291,11 @@ export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
         .returning();
       if (updated.length === 0) throw await conflict(tx, groupId, settlementId);
       const view = toView(updated[0]!);
-      await record(tx, group, view, 'dispute', 'settlement.disputed', me);
-      return view;
+      const activityId = await record(tx, group, view, 'dispute', 'settlement.disputed', me);
+      return { view, activityId };
     });
-    return c.json(view);
+    notifier.activity(view.activityId);
+    return c.json(view.view);
   });
 
   /** The person who disputed it takes the dispute back. */
@@ -309,10 +315,11 @@ export function settlementRoutes({ db, auth }: SettlementRouteDeps) {
         .returning();
       if (updated.length === 0) throw await conflict(tx, groupId, settlementId);
       const view = toView(updated[0]!);
-      await record(tx, group, view, 'update', 'settlement.dispute_withdrawn', me);
-      return view;
+      const activityId = await record(tx, group, view, 'update', 'settlement.dispute_withdrawn', me);
+      return { view, activityId };
     });
-    return c.json(view);
+    notifier.activity(view.activityId);
+    return c.json(view.view);
   });
 
   return app;

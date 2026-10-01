@@ -39,8 +39,10 @@ export async function logActivity(
     /** Display data captured at the time (names, old/new values). */
     payload?: Record<string, unknown>;
   },
-): Promise<void> {
-  await db.insert(activityEvents).values({
+): Promise<string> {
+  const [row] = await db
+    .insert(activityEvents)
+    .values({
     groupId: event.groupId,
     actorMember: event.actorMember,
     type: event.type,
@@ -48,5 +50,7 @@ export async function logActivity(
     entityId: event.entityId ?? null,
     revisionId: event.revisionId ?? null,
     payload: event.payload ?? {},
-  });
+    })
+    .returning({ id: activityEvents.id });
+  return row!.id;
 }

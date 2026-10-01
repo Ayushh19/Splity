@@ -18,7 +18,7 @@ Free-tier limits verified October 2026.
 | Database | **PGlite** (PostgreSQL compiled to WASM, embedded in Node, data in a local folder) for development. **Production database: not decided yet** |
 | Auth | **Better Auth 1.7** — Google OAuth + email magic link, using our `users` table (`usePlural`, UUID ids) plus `sessions`, `accounts`, `verifications`. 60-day sessions, single-use hashed magic links valid 10 min, Google and magic link for the same email share one account. Origin checks forced on even under `NODE_ENV=test` |
 | Email | **Resend** (magic links only), optional: without `RESEND_API_KEY` links are printed in the API console |
-| Push | Web Push via `web-push` + VAPID keys |
+| Push | Web Push via `web-push` + VAPID keys (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`; push is off without them). Hand-written `public/sw.js` (push + notification clicks only, no caching) and `manifest.webmanifest`; `vite-plugin-pwa`/Workbox not used since v1 has no offline mode |
 | Receipts | **Cloudflare R2**, browser uploads directly via presigned URL |
 | Scheduled jobs | **Vercel Cron**, once daily (recurring expenses) |
 | Hosting | **Vercel Hobby** — static frontend + API functions in one project |

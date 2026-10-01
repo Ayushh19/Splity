@@ -4,6 +4,7 @@ import { createAuth } from './auth';
 import { loadConfig } from './config';
 import { openDb } from './db/client';
 import { logMagicLink, resendMagicLink } from './email';
+import { createNotifier, webPushSender } from './services/push';
 
 const config = loadConfig();
 const { db } = await openDb(config.databaseDir);
@@ -14,11 +15,19 @@ const auth = createAuth({
   google: config.google,
   sendMagicLink: config.resendApiKey ? resendMagicLink(config.resendApiKey, config.emailFrom) : logMagicLink,
 });
-const app = createApp({ db, auth, baseUrl: config.baseUrl, features: { google: config.google !== null } });
+const notifier = createNotifier(db, config.vapid ? webPushSender(config.vapid) : null);
+const app = createApp({
+  db,
+  auth,
+  baseUrl: config.baseUrl,
+  notifier,
+  features: { google: config.google !== null, vapidPublicKey: config.vapid?.publicKey ?? null },
+});
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Splity API on http://localhost:${port} (public origin ${config.baseUrl})`);
   if (!config.google) console.log('Google sign-in disabled: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
   if (!config.resendApiKey) console.log('Magic links are printed here (no RESEND_API_KEY)');
+  if (!config.vapid) console.log('Push notifications disabled: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY');
 });

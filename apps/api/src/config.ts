@@ -7,6 +7,8 @@ export interface Config {
   /** `redirectUri` must exactly match an authorized redirect URI in Google Cloud Console. */
   google: { clientId: string; clientSecret: string; redirectUri: string } | null;
   resendApiKey: string | null;
+  /** Web Push keys; null disables push notifications. */
+  vapid: { publicKey: string; privateKey: string; subject: string } | null;
   emailFrom: string;
 }
 
@@ -38,6 +40,14 @@ export function loadConfig(): Config {
           }
         : null,
     resendApiKey: process.env.RESEND_API_KEY || null,
+    vapid:
+      process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
+        ? {
+            publicKey: process.env.VAPID_PUBLIC_KEY,
+            privateKey: process.env.VAPID_PRIVATE_KEY,
+            subject: process.env.VAPID_SUBJECT || 'mailto:admin@splity.local',
+          }
+        : null,
     emailFrom: process.env.EMAIL_FROM ?? 'Splity <login@splity.local>',
   };
 }
