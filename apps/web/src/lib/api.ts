@@ -14,6 +14,7 @@ import type {
   JoinInvite,
   Profile,
   ProfileUpdate,
+  RecurringSeriesView,
   ReminderResult,
   ReminderView,
   SettlementDetail,
@@ -371,3 +372,15 @@ export function useOpenDirect() {
     },
   });
 }
+
+// ── Recurring ──────────────────────────────────────────────────
+
+export function useRecurring(groupId: string) {
+  return useQuery({ queryKey: ['groups', groupId, 'recurring'], queryFn: () => api<RecurringSeriesView[]>(`/groups/${groupId}/recurring`) });
+}
+
+/** pause | resume | stop. Resuming can create today's occurrence, so money views refresh too. */
+export const useSeriesAction = (groupId: string) =>
+  useMoneyMutation(groupId, (vars: { seriesId: string; action: 'pause' | 'resume' | 'stop' }) =>
+    api<RecurringSeriesView>(`/groups/${groupId}/recurring/${vars.seriesId}/${vars.action}`, { method: 'POST' }),
+  );

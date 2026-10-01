@@ -1,5 +1,5 @@
 import { formatAmount, type ExpenseDetail as Detail, type ExpenseView, type GroupDetail } from '@splity/shared';
-import { Pencil, Plus, RotateCcw, Trash2, Users } from 'lucide-react';
+import { Pencil, Plus, Repeat, RotateCcw, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { Avatar, EmptyState, Sheet, TopBar, useToast } from '../components/ui';
@@ -134,6 +134,7 @@ export function AddExpense() {
       <ExpenseForm
         group={group.data}
         submitLabel="Save expense"
+        allowRepeat
         pending={create.isPending}
         error={create.isError ? errorMessage(create.error) : null}
         onSubmit={async (input) => {
@@ -285,6 +286,18 @@ function ExpenseDetailView({ group, detail }: { group: GroupDetail; detail: Deta
         <p className="banner" role="status">
           This expense was deleted. It doesn't count towards balances until it's restored.
         </p>
+      )}
+      {e.recurringSeriesId && (
+        <Link to={`/groups/${group.id}/recurring`} className="row">
+          <Repeat size={18} aria-hidden="true" />
+          <span className="row__main">
+            <span className="row__title" style={{ display: 'block' }}>
+              Repeating expense
+            </span>
+            <span className="small text-muted">Editing this one changes the ones after it, if it's the latest.</span>
+          </span>
+          <span className="text-muted">›</span>
+        </Link>
       )}
 
       <section className="readout" aria-label="Amount">

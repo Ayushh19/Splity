@@ -9,11 +9,13 @@ import { body, HttpError, requireUser, type AppEnv } from './http';
 import { accountRoutes } from './routes/account';
 import { expenseRoutes } from './routes/expenses';
 import { friendRoutes } from './routes/friends';
+import { recurringRoutes } from './routes/recurring';
 import { groupNotificationRoutes, pushRoutes } from './routes/notifications';
 import { groupRoutes } from './routes/groups';
 import { settlementRoutes } from './routes/settlements';
 import { inviteRoutes } from './routes/invites';
 import type { Notifier } from './services/push';
+import type { RecurringJob } from './services/recurring';
 
 export interface AppDeps {
   db: Db;
@@ -21,12 +23,17 @@ export interface AppDeps {
   /** Public origin of the app, used to build invite links. */
   baseUrl: string;
   notifier: Notifier;
+  recurring: RecurringJob;
+  /** Today's date in the app time zone (injectable for tests). */
+  today: () => string;
+  /** Bearer token for the cron endpoint; null disables it. */
+  cronSecret: string | null;
   /** What the client can offer: Google sign-in, and push (with the VAPID public key). */
   features: { google: boolean; vapidPublicKey: string | null };
 }
 
 /** Runtime-agnostic app: served by src/server.ts locally, by a Vercel function in production. */
-export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
+export function createApp({ db, auth, baseUrl, notifier, recurring, today, cronSecret, features }: AppDeps) {
   const app = new Hono<AppEnv>().basePath('/api');
 
   app.onError((err, c) => {
@@ -57,6 +64,14 @@ export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
 
+  /** Daily recurring job for an external scheduler (Vercel Cron sends GET with this bearer token). */
+  app.on(['GET', 'POST'], '/cron/recurring', async (c) => {
+    if (!cronSecret || c.req.header('Authorization') !== `Bearer ${cronSecret}`) {
+      throw new HttpError(401, 'unauthenticated');
+    }
+    return c.json(await recurring.runDue(today()));
+  });
+
   app.get('/config', (c) => c.json({ google: features.google, push: features.vapidPublicKey !== null, vapidPublicKey: features.vapidPublicKey }));
 
   app.get('/me', requireUser(auth), async (c) => {
@@ -81,7 +96,8 @@ export function createApp({ db, auth, baseUrl, notifier, features }: AppDeps) {
 
   app.route('/me', accountRoutes({ db, auth }));
   app.route('/groups', groupRoutes({ db, auth, baseUrl }));
-  app.route('/groups/:groupId', expenseRoutes({ db, auth, notifier }));
+  app.route('/groups/:groupId', expenseRoutes({ db, auth, notifier, recurring, today }));
+  app.route('/groups/:groupId', recurringRoutes({ db, auth, recurring, today }));
   app.route('/groups/:groupId', settlementRoutes({ db, auth, notifier }));
   app.route('/groups/:groupId', groupNotificationRoutes({ db, auth, notifier, baseUrl }));
   app.route('/push', pushRoutes({ db, auth }));

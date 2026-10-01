@@ -20,7 +20,7 @@ Free-tier limits verified October 2026.
 | Email | **Resend** (magic links only), optional: without `RESEND_API_KEY` links are printed in the API console |
 | Push | Web Push via `web-push` + VAPID keys (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`; push is off without them). Hand-written `public/sw.js` (push + notification clicks only, no caching) and `manifest.webmanifest`; `vite-plugin-pwa`/Workbox not used since v1 has no offline mode |
 | Receipts | **Cloudflare R2**, browser uploads directly via presigned URL |
-| Scheduled jobs | **Vercel Cron**, once daily (recurring expenses) |
+| Scheduled jobs | Recurring expenses: the long-running API server runs the job at startup and hourly; for serverless hosting, `GET/POST /api/cron/recurring` with `Authorization: Bearer $CRON_SECRET` (what Vercel Cron sends). Idempotent, so both can run |
 | Hosting | **Vercel Hobby** — static frontend + API functions in one project |
 
 ## `packages/shared` — the most important package

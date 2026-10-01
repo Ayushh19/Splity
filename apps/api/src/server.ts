@@ -5,6 +5,8 @@ import { loadConfig } from './config';
 import { openDb } from './db/client';
 import { logMagicLink, resendMagicLink } from './email';
 import { createNotifier, webPushSender } from './services/push';
+import { createRecurringJob } from './services/recurring';
+import { todayIn } from '@splity/shared';
 
 const config = loadConfig();
 const { db } = await openDb(config.databaseDir);
@@ -16,13 +18,28 @@ const auth = createAuth({
   sendMagicLink: config.resendApiKey ? resendMagicLink(config.resendApiKey, config.emailFrom) : logMagicLink,
 });
 const notifier = createNotifier(db, config.vapid ? webPushSender(config.vapid) : null);
+const recurring = createRecurringJob(db, notifier);
+const today = () => todayIn(config.appTimezone);
 const app = createApp({
   db,
   auth,
   baseUrl: config.baseUrl,
   notifier,
+  recurring,
+  today,
+  cronSecret: config.cronSecret,
   features: { google: config.google !== null, vapidPublicKey: config.vapid?.publicKey ?? null },
 });
+
+// Long-running server: run the recurring job at startup and every hour (idempotent, so overlap with
+// an external cron is harmless).
+const runRecurring = () =>
+  recurring
+    .runDue(today())
+    .then(({ created, paused }) => (created || paused) && console.log(`[recurring] created ${created}, paused ${paused}`))
+    .catch((e) => console.error('[recurring]', e));
+void runRecurring();
+setInterval(runRecurring, 60 * 60 * 1000).unref();
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port }, () => {

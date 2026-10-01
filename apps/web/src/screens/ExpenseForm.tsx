@@ -3,17 +3,20 @@ import {
   computeSplit,
   convertWithRate,
   formatAmount,
+  anchorFor,
   memberOrder,
   MoneyError,
   parseAmount,
+  scheduleText,
   type Category,
   type ExpenseInput,
+  type Frequency,
   type ExpenseView,
   type GroupDetail,
   type MemberView,
   type Owed,
 } from '@splity/shared';
-import { Calendar, NotebookPen, X } from 'lucide-react';
+import { Calendar, NotebookPen, Repeat, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Sheet } from '../components/ui';
 import { CATEGORY_LABELS, CategoryIcon, minorToInput, todayLocal } from '../lib/expenses';
@@ -191,13 +194,15 @@ export interface ExpenseFormProps {
   group: GroupDetail;
   expense?: ExpenseView;
   submitLabel: string;
+  /** Offer "Repeat" (new expenses only; occurrences are edited one at a time). */
+  allowRepeat?: boolean;
   pending: boolean;
   error?: string | null;
   onSubmit: (input: ExpenseInput) => void;
 }
 
 /** X1 Add / edit expense (SCREENS.md › Add expense form, DESIGN.md › Components). */
-export function ExpenseForm({ group, expense, submitLabel, pending, error, onSubmit }: ExpenseFormProps) {
+export function ExpenseForm({ group, expense, submitLabel, allowRepeat, pending, error, onSubmit }: ExpenseFormProps) {
   const me = group.members.find((m) => m.isYou)!;
   // Active members, plus removed members already in this expense (they may stay in it).
   const eligible = useMemo(() => {
@@ -205,7 +210,8 @@ export function ExpenseForm({ group, expense, submitLabel, pending, error, onSub
     return group.members.filter((m) => m.status === 'active' || inExpense.has(m.id));
   }, [group, expense]);
   const [s, setS] = useState(() => initialState(group, eligible, me, expense));
-  const [sheet, setSheet] = useState<'payer' | 'split' | 'category' | 'currency' | null>(null);
+  const [sheet, setSheet] = useState<'payer' | 'split' | 'category' | 'currency' | 'repeat' | null>(null);
+  const [repeat, setRepeat] = useState<Frequency | null>(null);
   const [showNotes, setShowNotes] = useState(Boolean(expense?.notes));
   const d = derive(s, group, eligible);
   const set = (patch: Partial<FormState>) => setS((prev) => ({ ...prev, ...patch }));
@@ -248,6 +254,7 @@ export function ExpenseForm({ group, expense, submitLabel, pending, error, onSub
       foreign,
       payers: d.payers,
       split: d.split,
+      ...(allowRepeat ? { repeat: repeat ? { frequency: repeat } : null } : {}),
     });
   }
 
@@ -330,7 +337,14 @@ export function ExpenseForm({ group, expense, submitLabel, pending, error, onSub
           <NotebookPen size={16} aria-hidden="true" />
           Note
         </button>
+        {allowRepeat && (
+          <button type="button" className="chip chip--button" aria-pressed={repeat !== null} onClick={() => setSheet('repeat')}>
+            <Repeat size={16} aria-hidden="true" />
+            {repeat ? (repeat === 'weekly' ? 'Weekly' : 'Monthly') : 'Repeat'}
+          </button>
+        )}
       </div>
+      {repeat && <p className="small text-muted">{scheduleText(repeat, anchorFor(repeat, s.date))}, starting from this one.</p>}
 
       {showNotes && (
         <div className="field">
@@ -355,6 +369,7 @@ export function ExpenseForm({ group, expense, submitLabel, pending, error, onSub
       <PayerSheet open={sheet === 'payer'} onClose={() => setSheet(null)} s={s} set={set} d={d} eligible={eligible} currency={cur} />
       <SplitSheet open={sheet === 'split'} onClose={() => setSheet(null)} s={s} set={set} d={d} eligible={eligible} currency={cur} />
       <CategorySheet open={sheet === 'category'} onClose={() => setSheet(null)} value={s.category} onPick={(category) => { set({ category }); setSheet(null); }} />
+      <RepeatSheet open={sheet === 'repeat'} onClose={() => setSheet(null)} value={repeat} date={s.date} onPick={(f) => { setRepeat(f); setSheet(null); }} />
       <CurrencySheet open={sheet === 'currency'} onClose={() => setSheet(null)} s={s} set={set} groupCurrency={cur} />
     </form>
   );
@@ -548,6 +563,38 @@ function CategorySheet({ open, onClose, value, onPick }: { open: boolean; onClos
             </button>
           ))}
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function RepeatSheet(props: { open: boolean; onClose: () => void; value: Frequency | null; date: string; onPick: (f: Frequency | null) => void }) {
+  const options: { value: Frequency | null; label: string; hint: string }[] = [
+    { value: null, label: 'Never', hint: 'Just this once' },
+    { value: 'weekly', label: 'Weekly', hint: scheduleText('weekly', anchorFor('weekly', props.date)) },
+    { value: 'monthly', label: 'Monthly', hint: scheduleText('monthly', anchorFor('monthly', props.date)) },
+  ];
+  return (
+    <Sheet open={props.open} onClose={props.onClose} label="Repeat">
+      <div className="stack">
+        <h2 className="h1">Repeat</h2>
+        <div role="radiogroup" aria-label="Repeat">
+          {options.map((o) => (
+            <button key={o.label} type="button" role="radio" aria-checked={props.value === o.value} className="row" onClick={() => props.onPick(o.value)}>
+              <span className={`led ${props.value === o.value ? 'led--green' : ''}`} aria-hidden="true" />
+              <span className="row__main">
+                <span className="row__title" style={{ display: 'block' }}>
+                  {o.label}
+                </span>
+                <span className="small text-muted">{o.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="field__help">
+          Each new one copies the latest, with the same split. Everyone in it gets notified. Edit the latest one to change what comes
+          next.
+        </p>
       </div>
     </Sheet>
   );

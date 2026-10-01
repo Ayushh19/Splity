@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import type { Transfer } from './balances';
 import type { Minor } from './money';
+import { repeatInput } from './recurring';
 import { currencyCode } from './schemas';
 
 export const CATEGORIES = [
@@ -64,12 +65,14 @@ export const expenseInput = z
       .array(z.object({ memberId, paidMinor: minorAmount }))
       .min(1, 'Someone has to have paid'),
     split: splitInput,
+    /** Create only: make this the first occurrence of a recurring series. */
+    repeat: repeatInput.nullable().default(null),
   })
   .strict();
 export type ExpenseInput = z.input<typeof expenseInput>;
 export type ParsedExpenseInput = z.output<typeof expenseInput>;
 
-export const expenseUpdate = expenseInput.extend({ version: z.number().int().min(1) }).strict();
+export const expenseUpdate = expenseInput.omit({ repeat: true }).extend({ version: z.number().int().min(1) }).strict();
 export type ExpenseUpdate = z.input<typeof expenseUpdate>;
 
 export const versionBody = z.object({ version: z.number().int().min(1) }).strict();

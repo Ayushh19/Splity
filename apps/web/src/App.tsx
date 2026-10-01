@@ -15,6 +15,7 @@ import { GroupDetail } from './screens/GroupDetail';
 import { GroupSettings } from './screens/GroupSettings';
 import { FriendDetail, Friends } from './screens/Friends';
 import { History } from './screens/History';
+import { Recurring } from './screens/Recurring';
 import { Home } from './screens/Home';
 import { Join } from './screens/Join';
 import { SignIn } from './screens/SignIn';
@@ -41,6 +42,7 @@ export function App() {
               <Route path="groups/:groupId/settings" element={<GroupSettings />} />
               <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
               <Route path="groups/:groupId/settlements/:settlementId" element={<SettlementDetail />} />
+              <Route path="groups/:groupId/recurring" element={<Recurring />} />
               <Route path="friends" element={<Friends />} />
               <Route path="friends/:userId" element={<FriendDetail />} />
               <Route path="activity" element={<ComingSoon title="Activity" icon={Activity} line="> LOG EMPTY" text="A feed across all your groups is coming. Each group's activity is in its Activity tab." />} />

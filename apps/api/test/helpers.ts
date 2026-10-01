@@ -3,6 +3,7 @@ import { createAuth } from '../src/auth';
 import { openDb } from '../src/db/client';
 import type { MagicLinkEmail } from '../src/email';
 import { createNotifier, type DeviceSubscription } from '../src/services/push';
+import { createRecurringJob } from '../src/services/recurring';
 import type { PushPayload } from '@splity/shared';
 
 export const BASE_URL = 'http://localhost:3000';
@@ -27,11 +28,17 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
     pushes.push({ endpoint: sub.endpoint, payload });
     return 'ok';
   });
+  /** Test clock for the recurring job; tests move it forward. */
+  const clock = { today: '2026-10-01' };
+  const recurring = createRecurringJob(db, notifier);
   const app = createApp({
     db,
     auth,
     baseUrl: BASE_URL,
     notifier,
+    recurring,
+    today: () => clock.today,
+    cronSecret: 'test-cron-secret',
     features: { google: Boolean(options.google), vapidPublicKey: 'test-vapid-public-key' },
   });
 
@@ -81,5 +88,5 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
     };
   }
 
-  return { app, db, outbox, pushes, notifier, request, signIn, user, close };
+  return { app, db, outbox, pushes, notifier, recurring, clock, request, signIn, user, close };
 }

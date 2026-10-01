@@ -10,6 +10,10 @@ export interface Config {
   /** Web Push keys; null disables push notifications. */
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
   emailFrom: string;
+  /** "Today" for recurring expenses (IANA zone). */
+  appTimezone: string;
+  /** Bearer token for POST /api/cron/recurring (Vercel Cron sends it); null disables the endpoint. */
+  cronSecret: string | null;
 }
 
 function required(name: string): string {
@@ -49,5 +53,7 @@ export function loadConfig(): Config {
           }
         : null,
     emailFrom: process.env.EMAIL_FROM ?? 'Splity <login@splity.local>',
+    appTimezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
+    cronSecret: process.env.CRON_SECRET || null,
   };
 }

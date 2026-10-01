@@ -53,10 +53,12 @@ export interface PreparedExpense {
 export async function prepareExpense(
   db: DbOrTx,
   group: Group,
-  input: ParsedExpenseInput,
+  input: Omit<ParsedExpenseInput, 'repeat'>,
   existingMemberIds: ReadonlySet<string> = new Set(),
+  /** The recurring job creates occurrences dated by its own clock. */
+  { trustedDate = false } = {},
 ): Promise<PreparedExpense> {
-  if (input.expenseDate > maxExpenseDate()) throw invalid('The date can be at most one day in the future');
+  if (!trustedDate && input.expenseDate > maxExpenseDate()) throw invalid('The date can be at most one day in the future');
 
   let amountMinor = input.amountMinor;
   if (input.foreign) {

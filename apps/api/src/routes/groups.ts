@@ -17,6 +17,7 @@ import { body, forbidden, HttpError, requireUser, type AppEnv } from '../http';
 import { logActivity } from '../services/activity';
 import { groupBalances } from '../services/balances';
 import { mergeMembers } from '../services/merge';
+import { pauseAllInGroup } from '../services/recurring';
 import { memberLedgers } from '../services/ledger';
 import {
   activeMemberCount,
@@ -416,6 +417,7 @@ export function groupRoutes({ db, auth, baseUrl }: GroupRouteDeps) {
           unsettled,
         });
       }
+      await pauseAllInGroup(tx, groupId);
       const [updated] = await tx
         .update(groups)
         .set({ archivedAt: new Date(), archivedBy: me.id })

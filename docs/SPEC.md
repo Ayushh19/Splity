@@ -155,6 +155,23 @@ and transparency beat feature breadth. No growth/monetization goals.
 - Members who have been **removed** from the group are **skipped** in new occurrences; the split
   is recalculated over the remaining participants (same method, same rounding rule).
 
+### Recurring details (decided 2026-10-01)
+- Set with the **Repeat** chip when adding an expense (weekly or monthly); that expense is the
+  first occurrence. Weekly keeps its weekday; monthly keeps its day, using the last day of
+  shorter months (31st → 30 Apr → 28 Feb → 31 Mar).
+- "Today" is in `APP_TIMEZONE` (default Asia/Kolkata). Occurrences are created by the system
+  (shown as SYSTEM in history) and notify everyone in them.
+- **No back-filling** when a repeat is set on an old date: the schedule starts from today.
+  While a series is active, dates missed because the job didn't run *are* created (catch-up);
+  dates missed while paused are skipped.
+- Each occurrence copies the **latest non-deleted** one, so editing the latest changes the next.
+  If every occurrence is deleted the series stops.
+- Removed people are dropped from equal/shares splits. A removed payer or a removed person in
+  an exact split **pauses** the series; its creator gets a push (even if muted) and the feed
+  logs it. Resume is refused until the latest occurrence is valid again; it then continues from
+  the next date on or after today.
+- Any active member can pause, resume or stop (stop is final). Archiving a group pauses its series.
+
 ### Limits
 - Max **50 members** per group.
 - Max expense **₹10,00,00,000** (or equivalent in group currency).

@@ -6,7 +6,7 @@ import {
   type SettlementView,
   type Transfer,
 } from '@splity/shared';
-import { HandCoins, Plus, Receipt, Settings, UserPlus } from 'lucide-react';
+import { HandCoins, Plus, Receipt, Repeat, Settings, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ActivityLog } from '../components/ActivityLog';
@@ -18,6 +18,7 @@ import {
   useExpenses,
   useGroup,
   useGroupActivity,
+  useRecurring,
   useReminders,
   useSendReminder,
   useSettlements,
@@ -148,6 +149,9 @@ function Expenses({ group }: { group: Group }) {
   const payments = useSettlements(group.id);
   const [showDeleted, setShowDeleted] = useState(false);
   const deleted = useExpenses(group.id, { deleted: true });
+  const recurring = useRecurring(group.id);
+  const activeSeries = recurring.data?.filter((s) => s.status !== 'stopped') ?? [];
+  const pausedSeries = activeSeries.filter((s) => s.status === 'paused').length;
 
   if (expenses.isPending) return <div className="skeleton" style={{ height: 160 }} />;
   if (expenses.isError) {
@@ -160,6 +164,18 @@ function Expenses({ group }: { group: Group }) {
   const deletedCount = deleted.data?.length ?? 0;
   return (
     <div className="stack">
+      {activeSeries.length > 0 && (
+        <Link to={`/groups/${group.id}/recurring`} className="row">
+          <Repeat size={18} aria-hidden="true" />
+          <span className="row__main row__title">Recurring ({activeSeries.length})</span>
+          {pausedSeries > 0 && (
+            <Badge tone="amber" led="amber">
+              {pausedSeries} paused
+            </Badge>
+          )}
+          <span className="text-muted">›</span>
+        </Link>
+      )}
       {expenses.data.length === 0 && !payments.data?.length ? (
         <EmptyState icon={Receipt} line="> NO EXPENSES YET" text="Add the first one and Splity will keep score." />
       ) : (
@@ -212,6 +228,7 @@ function ExpenseList(props: { group: Group; expenses: ExpenseView[]; settlements
                 <span className="row__title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <CategoryIcon category={e.category} size={16} />
                   <span className="row__title">{e.description}</span>
+                  {e.recurringSeriesId && <Repeat size={14} aria-label="Repeating" className="text-muted" />}
                 </span>
                 <span className="small text-muted">{payerText}</span>
               </span>

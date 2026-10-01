@@ -15,11 +15,15 @@ import {
 import { groupBalances } from '../services/balances';
 import { assertWritable, effectiveName, lockGroup, requireMember } from '../services/membership';
 import type { Notifier } from '../services/push';
+import { createSeries, type RecurringJob } from '../services/recurring';
 
 export interface ExpenseRouteDeps {
   db: Db;
   auth: Auth;
   notifier: Notifier;
+  recurring: RecurringJob;
+  /** Today's date in the app time zone. */
+  today: () => string;
 }
 
 /**
@@ -39,7 +43,7 @@ async function conflict(db: DbOrTx, groupId: string, expenseId: string): Promise
 }
 
 /** Mounted at /groups/:groupId. */
-export function expenseRoutes({ db, auth, notifier }: ExpenseRouteDeps) {
+export function expenseRoutes({ db, auth, notifier, recurring, today }: ExpenseRouteDeps) {
   const app = new Hono<AppEnv>();
   app.use('*', requireUser(auth));
 
@@ -58,11 +62,14 @@ export function expenseRoutes({ db, auth, notifier }: ExpenseRouteDeps) {
       const group = await lockGroup(tx, groupId);
       assertWritable(group);
       const prepared = await prepareExpense(tx, group, input);
+      const series = input.repeat ? await createSeries(tx, groupId, input.repeat.frequency, input.expenseDate, today(), me.id) : null;
       const [row] = await tx
         .insert(expenses)
         .values({
           groupId,
           createdBy: me.id,
+          recurringSeriesId: series?.id ?? null,
+          occurrenceDate: series ? input.expenseDate : null,
           description: input.description,
           category: input.category,
           notes: input.notes,
@@ -79,6 +86,8 @@ export function expenseRoutes({ db, auth, notifier }: ExpenseRouteDeps) {
       return { view, activityId: await recordChange(tx, group, view, 'create', me.id) };
     });
     notifier.activity(view.activityId);
+    // A first date in the past may already make the next occurrence due today.
+    if (input.repeat) void recurring.runDue(today(), groupId).catch((e) => console.error('[recurring]', e));
     return c.json(view.view, 201);
   });
 

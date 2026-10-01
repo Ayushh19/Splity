@@ -40,6 +40,12 @@ function describe(e: ActivityEvent): string {
       return `merged "${str(p.from)}" into ${str(p.into)}`;
     case 'member.account_deleted':
       return 'deleted their account';
+    case 'recurring.paused':
+      return p.reason === 'manual' ? `paused repeating "${str(p.description)}"` : `"${str(p.description)}" stopped repeating (someone was removed) — fix it and resume`;
+    case 'recurring.resumed':
+      return `resumed repeating "${str(p.description)}"`;
+    case 'recurring.stopped':
+      return `stopped repeating "${str(p.description)}"`;
     case 'group.archived':
       return 'archived the group';
     case 'group.unarchived':
