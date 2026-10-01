@@ -1,14 +1,16 @@
 import { displayName as displayNameSchema } from '@splity/shared';
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { TypedLine } from '../components/TypedLine';
 import { useMe, useUpdateProfile } from '../lib/api';
+import { safeNext } from '../lib/format';
 
 /** First sign-in: ask for the name friends will see. Google users arrive with one pre-filled. */
 export function Welcome() {
   const me = useMe();
   const update = useUpdateProfile();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [name, setName] = useState(me.data?.displayName ?? '');
   const [touched, setTouched] = useState(false);
 
@@ -20,7 +22,7 @@ export function Welcome() {
     setTouched(true);
     if (!parsed.success) return;
     await update.mutateAsync({ displayName: parsed.data });
-    void navigate('/', { replace: true });
+    void navigate(safeNext(params.get('next')) ?? '/', { replace: true });
   }
 
   return (

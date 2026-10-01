@@ -18,7 +18,7 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
       outbox.push(email);
     },
   });
-  const app = createApp({ db, auth, features: { google: Boolean(options.google) } });
+  const app = createApp({ db, auth, baseUrl: BASE_URL, features: { google: Boolean(options.google) } });
 
   const request = (path: string, init: RequestInit = {}) =>
     app.request(path, { ...init, headers: { Origin: BASE_URL, ...init.headers } });
@@ -41,5 +41,29 @@ export async function testApp(options: { google?: { clientId: string; clientSecr
     return cookie;
   }
 
-  return { app, db, outbox, request, signIn, close };
+  /** A signed-in user with a display name, plus JSON helpers that send their cookie. */
+  async function user(name: string) {
+    const cookie = await signIn(`${name.toLowerCase().replace(/\W/g, '')}.${outbox.length}@example.com`);
+    const call = async (method: string, path: string, json?: unknown) => {
+      const res = await request(`/api${path}`, {
+        method,
+        headers: { Cookie: cookie, ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+        ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
+      });
+      const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { status: res.status, body: (text ? JSON.parse(text) : null) as any };
+    };
+    await call('PATCH', '/me', { displayName: name });
+    return {
+      name,
+      cookie,
+      get: (path: string) => call('GET', path),
+      post: (path: string, json: unknown = {}) => call('POST', path, json),
+      patch: (path: string, json: unknown) => call('PATCH', path, json),
+      del: (path: string) => call('DELETE', path),
+    };
+  }
+
+  return { app, db, outbox, request, signIn, user, close };
 }

@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { TypedLine } from '../components/TypedLine';
 import { useAuthConfig } from '../lib/api';
+import { safeNext } from '../lib/format';
 import { authClient } from '../lib/auth-client';
 
 const RESEND_AFTER_SECONDS = 60;
@@ -18,6 +19,11 @@ const signInErrors: Record<string, string> = {
 export function SignIn() {
   const [params] = useSearchParams();
   const config = useAuthConfig();
+  // Where to go after signing in (e.g. back to an invite link), and the same for brand-new users via /welcome.
+  const next = safeNext(params.get('next'));
+  const callbackURL = next ?? '/';
+  const newUserCallbackURL = next ? `/welcome?next=${encodeURIComponent(next)}` : '/welcome';
+  const errorCallbackURL = next ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in';
   const [email, setEmail] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(() => {
@@ -31,9 +37,9 @@ export function SignIn() {
     setError(null);
     const { error } = await authClient.signIn.magicLink({
       email: to,
-      callbackURL: '/',
-      newUserCallbackURL: '/welcome',
-      errorCallbackURL: '/sign-in',
+      callbackURL,
+      newUserCallbackURL,
+      errorCallbackURL,
     });
     setSending(false);
     if (error) {
@@ -89,9 +95,9 @@ export function SignIn() {
               onClick={() =>
                 authClient.signIn.social({
                   provider: 'google',
-                  callbackURL: '/',
-                  newUserCallbackURL: '/welcome',
-                  errorCallbackURL: '/sign-in',
+                  callbackURL,
+                  newUserCallbackURL,
+                  errorCallbackURL,
                 })
               }
             >

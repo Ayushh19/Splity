@@ -1,29 +1,35 @@
 import { profileUpdate, type Profile } from '@splity/shared';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
+import { HTTPException } from 'hono/http-exception';
 import type { Auth } from './auth';
 import type { Db } from './db/client';
 import { users } from './db/schema';
-
-type Env = { Variables: { userId: string } };
+import { body, HttpError, requireUser, type AppEnv } from './http';
+import { groupRoutes } from './routes/groups';
+import { inviteRoutes } from './routes/invites';
 
 export interface AppDeps {
   db: Db;
   auth: Auth;
+  /** Public origin of the app, used to build invite links. */
+  baseUrl: string;
   /** Which sign-in methods are configured, for the sign-in screen. */
   features: { google: boolean };
 }
 
 /** Runtime-agnostic app: served by src/server.ts locally, by a Vercel function in production. */
-export function createApp({ db, auth, features }: AppDeps) {
-  const app = new Hono<Env>().basePath('/api');
+export function createApp({ db, auth, baseUrl, features }: AppDeps) {
+  const app = new Hono<AppEnv>().basePath('/api');
 
-  const requireUser = createMiddleware<Env>(async (c, next) => {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session) return c.json({ error: 'unauthenticated' }, 401);
-    c.set('userId', session.user.id);
-    await next();
+  app.onError((err, c) => {
+    if (err instanceof HttpError) {
+      const issues = (err as HttpError & { issues?: unknown }).issues;
+      return c.json({ error: err.code, message: err.message, ...(issues ? { issues } : {}) }, err.status);
+    }
+    if (err instanceof HTTPException) return err.getResponse();
+    console.error(err);
+    return c.json({ error: 'internal', message: 'Something went wrong' }, 500);
   });
 
   const profileOf = async (userId: string): Promise<Profile | undefined> => {
@@ -47,15 +53,14 @@ export function createApp({ db, auth, features }: AppDeps) {
 
   app.get('/config', (c) => c.json(features));
 
-  app.get('/me', requireUser, async (c) => {
+  app.get('/me', requireUser(auth), async (c) => {
     const profile = await profileOf(c.var.userId);
-    return profile ? c.json(profile) : c.json({ error: 'unauthenticated' }, 401);
+    if (!profile) throw new HttpError(401, 'unauthenticated');
+    return c.json(profile);
   });
 
-  app.patch('/me', requireUser, async (c) => {
-    const parsed = profileUpdate.safeParse(await c.req.json().catch(() => null));
-    if (!parsed.success) return c.json({ error: 'invalid', issues: parsed.error.issues }, 400);
-    const { displayName, upiId, defaultCurrency } = parsed.data;
+  app.patch('/me', requireUser(auth), async (c) => {
+    const { displayName, upiId, defaultCurrency } = await body(c, profileUpdate);
     await db
       .update(users)
       .set({
@@ -67,6 +72,9 @@ export function createApp({ db, auth, features }: AppDeps) {
       .where(eq(users.id, c.var.userId));
     return c.json(await profileOf(c.var.userId));
   });
+
+  app.route('/groups', groupRoutes({ db, auth, baseUrl }));
+  app.route('/invites', inviteRoutes({ db, auth, baseUrl }));
 
   return app;
 }

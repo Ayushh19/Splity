@@ -190,6 +190,8 @@ export const groupMembers = pgTable(
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
     // When a real user joined or claimed this row — used for "longest-standing" admin promotion.
     userSince: timestamp('user_since', { withTimezone: true }),
+    // Set when a user claimed this row as a placeholder (vs. joining as a new member); undo-claim needs it.
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
     muted: boolean('muted').notNull().default(false),
     removedAt: timestamp('removed_at', { withTimezone: true }),
   },
@@ -202,6 +204,7 @@ export const groupMembers = pgTable(
     index('group_members_user_idx').on(t.userId),
     check('group_members_admin_is_user', sql`${t.role} <> 'admin' OR ${t.userId} IS NOT NULL`),
     check('group_members_user_since', sql`(${t.userId} IS NULL) = (${t.userSince} IS NULL)`),
+    check('group_members_claimed_at', sql`${t.claimedAt} IS NULL OR ${t.userId} IS NOT NULL`),
     check('group_members_merged', sql`(${t.status} = 'merged') = (${t.mergedInto} IS NOT NULL)`),
     check('group_members_removed_at', sql`(${t.status} = 'removed') = (${t.removedAt} IS NOT NULL)`),
   ],
@@ -408,7 +411,8 @@ export const activityEvents = pgTable(
     entityId: uuid('entity_id'),
     revisionId: uuid('revision_id').references(() => revisions.id),
     payload: jsonb('payload').notNull().default({}),
-    createdAt: createdAt(),
+    // clock_timestamp(), not now(): several events in one transaction must keep their order.
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   },
   (t) => [index('activity_events_group_time_idx').on(t.groupId, t.createdAt.desc())],
 );

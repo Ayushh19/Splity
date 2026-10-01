@@ -14,7 +14,7 @@ const auth = createAuth({
   google: config.google,
   sendMagicLink: config.resendApiKey ? resendMagicLink(config.resendApiKey, config.emailFrom) : logMagicLink,
 });
-const app = createApp({ db, auth, features: { google: config.google !== null } });
+const app = createApp({ db, auth, baseUrl: config.baseUrl, features: { google: config.google !== null } });
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port }, () => {

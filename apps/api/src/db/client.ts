@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 import * as schema from './schema';
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+/** Anything that can run queries: the database or an open transaction. */
+export type DbOrTx = Db | Tx;
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
 

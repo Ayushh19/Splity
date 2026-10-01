@@ -22,6 +22,20 @@
       "when": 1790845202645,
       "tag": "0002_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790846337744,
+      "tag": "0003_member_claimed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790846442931,
+      "tag": "0004_activity_clock_timestamp",
+      "breakpoints": true
     }
   ]
 }

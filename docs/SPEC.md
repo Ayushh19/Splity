@@ -41,6 +41,21 @@ and transparency beat feature breadth. No growth/monetization goals.
 - **Placeholders** can be **hard-deleted only if they appear in no expenses** (e.g. typo).
   Otherwise they can only be marked removed.
 
+### Membership details (decided while building, 2026-10-01)
+- **Names:** a new placeholder can't reuse the name of an active member (case-insensitive).
+- **Invite preview is public:** anyone with the link sees the group name, member count and
+  unclaimed placeholder names before signing in (the token is the secret). Joining needs sign-in;
+  after signing in (or picking a name as a new user) the person returns to the invite.
+- **Rejoining:** a removed member who opens the invite link is reactivated on the same member
+  row, so their history stays theirs. They can't claim a placeholder instead.
+- **Removed members** can still open the group read-only (to see history and settle up) and see
+  it on Home while their balance is non-zero; they can't change anything.
+- **Undo claim:** only for members who claimed a placeholder (not new joiners), not for admins
+  (demote first) and not on yourself. The row becomes a placeholder again; the person loses access.
+- **Leaving** sets the member to "removed". The last member with an account can't leave.
+- **Who can do what:** any active member can rename the group, toggle simplify and add
+  placeholders; admins promote, undo claims, remove members and reset the invite link.
+
 ### Lifecycle
 - Groups are **never deleted**.
 - An **admin** can **archive** a group **for everyone**, only when **all balances are 0**.

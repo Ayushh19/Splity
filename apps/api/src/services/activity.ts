@@ -1,0 +1,40 @@
+import type { DbOrTx } from '../db/client';
+import { activityEvents } from '../db/schema';
+
+export type ActivityType =
+  | 'group.created'
+  | 'group.renamed'
+  | 'group.simplify_changed'
+  | 'invite.reset'
+  | 'member.added'
+  | 'member.joined'
+  | 'member.rejoined'
+  | 'member.claimed'
+  | 'member.claim_undone'
+  | 'member.promoted'
+  | 'member.removed'
+  | 'member.deleted'
+  | 'member.left'
+  | 'admin.auto_promoted';
+
+export async function logActivity(
+  db: DbOrTx,
+  event: {
+    groupId: string;
+    actorMember: string | null;
+    type: ActivityType;
+    entityType?: 'member' | 'group';
+    entityId?: string;
+    /** Display data captured at the time (names, old/new values). */
+    payload?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await db.insert(activityEvents).values({
+    groupId: event.groupId,
+    actorMember: event.actorMember,
+    type: event.type,
+    entityType: event.entityType ?? null,
+    entityId: event.entityId ?? null,
+    payload: event.payload ?? {},
+  });
+}

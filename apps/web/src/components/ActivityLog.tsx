@@ -1,0 +1,68 @@
+import type { ActivityEvent } from '../lib/api';
+import { logDay, logTime } from '../lib/format';
+
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+/** One event as a terminal log line's text (DESIGN.md › Activity feed — log lines). */
+function describe(e: ActivityEvent): string {
+  const p = e.payload;
+  switch (e.type) {
+    case 'group.created':
+      return `created the group`;
+    case 'group.renamed':
+      return `renamed the group to "${str(p.to)}"`;
+    case 'group.simplify_changed':
+      return `turned simplify debts ${p.simplifyDebts ? 'on' : 'off'}`;
+    case 'invite.reset':
+      return 'reset the invite link';
+    case 'member.added':
+      return `added ${str(p.name)}`;
+    case 'member.joined':
+      return 'joined';
+    case 'member.rejoined':
+      return 'rejoined';
+    case 'member.claimed':
+      return `joined as "${str(p.placeholder)}"`;
+    case 'member.claim_undone':
+      return `undid ${str(p.claimedBy)}'s claim of "${str(p.placeholder)}"`;
+    case 'member.promoted':
+      return `made ${str(p.name)} an admin`;
+    case 'member.removed':
+      return `removed ${str(p.name)}`;
+    case 'member.deleted':
+      return `deleted ${str(p.name)}`;
+    case 'member.left':
+      return 'left the group';
+    case 'admin.auto_promoted':
+      return `${str(p.name)} is now an admin`;
+    default:
+      return e.type;
+  }
+}
+
+export function ActivityLog({ events }: { events: ActivityEvent[] }) {
+  let lastDay = '';
+  return (
+    <ol className="log">
+      {events.map((e) => {
+        const day = logDay(e.createdAt);
+        const divider = day !== lastDay;
+        lastDay = day;
+        return (
+          <li key={e.id}>
+            {divider && <p className="log__day">── {day} ──</p>}
+            <p className="log__line">
+              <time className="log__time" dateTime={e.createdAt}>
+                {logTime(e.createdAt)}
+              </time>
+              <span>
+                <span className="log__actor">{e.actorName ?? 'System'}</span>
+                {describe(e)}
+              </span>
+            </p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}

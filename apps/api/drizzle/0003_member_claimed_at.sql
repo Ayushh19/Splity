@@ -1,0 +1,2 @@
+ALTER TABLE "group_members" ADD COLUMN "claimed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "group_members" ADD CONSTRAINT "group_members_claimed_at" CHECK ("group_members"."claimed_at" IS NULL OR "group_members"."user_id" IS NOT NULL);

@@ -94,6 +94,7 @@ with the auth work.
 | sort_key | bigint, identity | Monotonic creation order — **the fixed order for rounding** |
 | joined_at | timestamptz | When the row was created |
 | user_since | timestamptz, nullable | When a real user joined or claimed it — **used for "longest-standing" admin promotion** |
+| claimed_at | timestamptz, nullable | Set when a user claimed this row as a placeholder; needed for "undo claim" |
 | muted | bool, default false | Per-member group mute |
 | removed_at | timestamptz, nullable | |
 
@@ -283,7 +284,7 @@ the same transaction as the change itself.
 | entity_type, entity_id | nullable | Link to the expense/settlement/member |
 | revision_id | uuid FK → revisions, nullable | |
 | payload | jsonb | Display data (names/amounts at the time) |
-| created_at | timestamptz | |
+| created_at | timestamptz | Default `clock_timestamp()` (not `now()`), so events written in one transaction keep their order |
 
 Push fan-out reads the event, works out recipients (involved members, minus actor, minus muted,
 minus placeholders) and sends.

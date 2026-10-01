@@ -1,8 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Activity, Plus, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router';
+import { AppShell } from './components/AppShell';
+import { ToastProvider } from './components/ui';
 import { useMe } from './lib/api';
+import { safeNext } from './lib/format';
+import { Account } from './screens/Account';
+import { ComingSoon } from './screens/ComingSoon';
+import { CreateGroup } from './screens/CreateGroup';
+import { GroupDetail } from './screens/GroupDetail';
+import { GroupSettings } from './screens/GroupSettings';
 import { Home } from './screens/Home';
+import { Join } from './screens/Join';
 import { SignIn } from './screens/SignIn';
 import { Welcome } from './screens/Welcome';
 
@@ -13,42 +23,42 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="/sign-in"
-            element={
-              <Gate when="signed-out">
-                <SignIn />
-              </Gate>
-            }
-          />
-          <Route
-            path="/welcome"
-            element={
-              <Gate when="signed-in">
-                <Welcome />
-              </Gate>
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <Gate when="signed-in" requireName>
-                <Home />
-              </Gate>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/sign-in" element={<Gate when="signed-out"><SignIn /></Gate>} />
+            <Route path="/welcome" element={<Gate when="signed-in"><Welcome /></Gate>} />
+            {/* Works signed in or out: the preview is public, joining needs a session. */}
+            <Route path="/join/:token" element={<Join />} />
+
+            <Route element={<Gate when="signed-in" requireName><AppShell /></Gate>}>
+              <Route index element={<Home />} />
+              <Route path="groups/:groupId" element={<GroupDetail />} />
+              <Route path="groups/:groupId/settings" element={<GroupSettings />} />
+              <Route path="friends" element={<ComingSoon title="Friends" icon={Users} line="> NO FRIENDS LOGGED" text="Everyone you share a group with shows up here once expenses arrive." />} />
+              <Route path="activity" element={<ComingSoon title="Activity" icon={Activity} line="> LOG EMPTY" text="A feed across all your groups is coming. Each group's activity is in its Activity tab." />} />
+              <Route path="add" element={<ComingSoon title="Add expense" icon={Plus} line="> COMING NEXT" text="Adding expenses is the next thing being built." />} />
+              <Route path="account" element={<Account />} />
+            </Route>
+            {/* Full-screen forms: no tab bar. */}
+            <Route path="/groups/new" element={<Gate when="signed-in" requireName><CreateGroup /></Gate>} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
 
-/** Route guard: sends people to sign-in, to the name step, or home, depending on their session. */
+/**
+ * Route guard: signed-out users go to sign-in (and come back afterwards), new users
+ * pick a name first, signed-in users skip the sign-in screen.
+ */
 function Gate({ when, requireName, children }: { when: 'signed-in' | 'signed-out'; requireName?: boolean; children: ReactNode }) {
   const me = useMe();
+  const location = useLocation();
+  const [params] = useSearchParams();
 
   if (me.isPending) return <LoadingScreen />;
   if (me.isError) {
@@ -62,9 +72,10 @@ function Gate({ when, requireName, children }: { when: 'signed-in' | 'signed-out
   }
 
   const user = me.data;
-  if (when === 'signed-out') return user ? <Navigate to="/" replace /> : children;
-  if (!user) return <Navigate to="/sign-in" replace />;
-  if (requireName && !user.displayName) return <Navigate to="/welcome" replace />;
+  const here = encodeURIComponent(location.pathname + location.search);
+  if (when === 'signed-out') return user ? <Navigate to={safeNext(params.get('next')) ?? '/'} replace /> : children;
+  if (!user) return <Navigate to={`/sign-in?next=${here}`} replace />;
+  if (requireName && !user.displayName) return <Navigate to={`/welcome?next=${here}`} replace />;
   return children;
 }
 
