@@ -10,6 +10,7 @@ import { Account } from './screens/Account';
 import { ComingSoon } from './screens/ComingSoon';
 import { CreateGroup } from './screens/CreateGroup';
 import { AddExpense, EditExpense, ExpenseDetail, PickGroup } from './screens/ExpenseScreens';
+import { EditSettlement, SettlementDetail, SettleUp } from './screens/SettleScreens';
 import { GroupDetail } from './screens/GroupDetail';
 import { GroupSettings } from './screens/GroupSettings';
 import { Home } from './screens/Home';
@@ -37,6 +38,7 @@ export function App() {
               <Route path="groups/:groupId" element={<GroupDetail />} />
               <Route path="groups/:groupId/settings" element={<GroupSettings />} />
               <Route path="groups/:groupId/expenses/:expenseId" element={<ExpenseDetail />} />
+              <Route path="groups/:groupId/settlements/:settlementId" element={<SettlementDetail />} />
               <Route path="friends" element={<ComingSoon title="Friends" icon={Users} line="> NO FRIENDS LOGGED" text="Everyone you share a group with shows up here once expenses arrive." />} />
               <Route path="activity" element={<ComingSoon title="Activity" icon={Activity} line="> LOG EMPTY" text="A feed across all your groups is coming. Each group's activity is in its Activity tab." />} />
               <Route path="add" element={<PickGroup />} />
@@ -46,6 +48,8 @@ export function App() {
             <Route path="/groups/new" element={<Gate when="signed-in" requireName><CreateGroup /></Gate>} />
             <Route path="/groups/:groupId/expenses/new" element={<Gate when="signed-in" requireName><AddExpense /></Gate>} />
             <Route path="/groups/:groupId/expenses/:expenseId/edit" element={<Gate when="signed-in" requireName><EditExpense /></Gate>} />
+            <Route path="/groups/:groupId/settle" element={<Gate when="signed-in" requireName><SettleUp /></Gate>} />
+            <Route path="/groups/:groupId/settlements/:settlementId/edit" element={<Gate when="signed-in" requireName><EditSettlement /></Gate>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

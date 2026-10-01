@@ -12,6 +12,10 @@ import type {
   JoinInvite,
   Profile,
   ProfileUpdate,
+  SettlementDetail,
+  SettlementInput,
+  SettlementUpdate,
+  SettlementView,
   UpdateGroup,
 } from '@splity/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -207,8 +211,8 @@ export function useBalances(groupId: string) {
   return useQuery({ queryKey: ['groups', groupId, 'balances'], queryFn: () => api<GroupBalances>(`/groups/${groupId}/balances`) });
 }
 
-/** After any expense change: this group's data (balances, lists, activity, detail) and Home. */
-function useExpenseMutation<V>(groupId: string, request: (vars: V) => Promise<ExpenseView>) {
+/** After any expense or payment change: this group's data (balances, lists, activity, detail) and Home. */
+function useMoneyMutation<V, R>(groupId: string, request: (vars: V) => Promise<R>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: request,
@@ -220,20 +224,20 @@ function useExpenseMutation<V>(groupId: string, request: (vars: V) => Promise<Ex
 }
 
 export const useCreateExpense = (groupId: string) =>
-  useExpenseMutation(groupId, (input: ExpenseInput) => api<ExpenseView>(`/groups/${groupId}/expenses`, json('POST', input)));
+  useMoneyMutation(groupId, (input: ExpenseInput) => api<ExpenseView>(`/groups/${groupId}/expenses`, json('POST', input)));
 
 export const useUpdateExpense = (groupId: string, expenseId: string) =>
-  useExpenseMutation(groupId, (input: ExpenseInput & { version: number }) =>
+  useMoneyMutation(groupId, (input: ExpenseInput & { version: number }) =>
     api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}`, json('PUT', input)),
   );
 
 export const useDeleteExpense = (groupId: string, expenseId: string) =>
-  useExpenseMutation(groupId, (version: number) =>
+  useMoneyMutation(groupId, (version: number) =>
     api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}/delete`, json('POST', { version })),
   );
 
 export const useRestoreExpense = (groupId: string, expenseId: string) =>
-  useExpenseMutation(groupId, (version: number) =>
+  useMoneyMutation(groupId, (version: number) =>
     api<ExpenseView>(`/groups/${groupId}/expenses/${expenseId}/restore`, json('POST', { version })),
   );
 
@@ -244,3 +248,34 @@ export function conflictOf(error: unknown): { changedBy: string; current: Expens
   }
   return null;
 }
+
+// ── Settlements ────────────────────────────────────────────────
+
+export function useSettlements(groupId: string, { deleted = false } = {}) {
+  return useQuery({
+    queryKey: ['groups', groupId, 'settlements', { deleted }],
+    queryFn: () => api<SettlementView[]>(`/groups/${groupId}/settlements${deleted ? '?deleted=1' : ''}`),
+  });
+}
+
+export function useSettlement(groupId: string, settlementId: string) {
+  return useQuery({
+    queryKey: ['groups', groupId, 'settlement', settlementId],
+    queryFn: () => api<SettlementDetail>(`/groups/${groupId}/settlements/${settlementId}`),
+  });
+}
+
+export const useRecordSettlement = (groupId: string) =>
+  useMoneyMutation(groupId, (input: SettlementInput) => api<SettlementView>(`/groups/${groupId}/settlements`, json('POST', input)));
+
+export const useUpdateSettlement = (groupId: string, id: string) =>
+  useMoneyMutation(groupId, (input: SettlementUpdate) => api<SettlementView>(`/groups/${groupId}/settlements/${id}`, json('PUT', input)));
+
+/** delete | restore | dispute | withdraw-dispute, all versioned. */
+export const useSettlementAction = (groupId: string, id: string) =>
+  useMoneyMutation(groupId, (vars: { action: 'delete' | 'restore' | 'dispute' | 'withdraw-dispute'; version: number; note?: string | null }) =>
+    api<SettlementView>(
+      `/groups/${groupId}/settlements/${id}/${vars.action}`,
+      json('POST', vars.action === 'dispute' ? { version: vars.version, note: vars.note ?? null } : { version: vars.version }),
+    ),
+  );

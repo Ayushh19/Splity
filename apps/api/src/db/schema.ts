@@ -368,7 +368,6 @@ export const settlements = pgTable(
     index('settlements_group_idx').on(t.groupId),
     check('settlements_distinct_members', sql`${t.fromMember} <> ${t.toMember}`),
     check('settlements_amount_positive', sql`${t.amountMinor} > 0`),
-    check('settlements_recorded_by_party', sql`${t.recordedBy} IN (${t.fromMember}, ${t.toMember})`),
     check(
       'settlements_disputed',
       sql`(${t.disputedAt} IS NULL) = (${t.disputedBy} IS NULL)

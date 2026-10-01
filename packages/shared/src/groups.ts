@@ -49,6 +49,8 @@ export interface MemberView {
   status: MemberStatus;
   /** No account linked yet. */
   isPlaceholder: boolean;
+  /** For the "Pay via UPI" button; null for placeholders and people who haven't set one. */
+  upiId: string | null;
   /** A user claimed this placeholder (an admin can undo it). */
   claimed: boolean;
   isYou: boolean;

@@ -44,6 +44,24 @@ function describe(e: ActivityEvent): string {
       const amount = typeof p.amountMinor === 'number' && str(p.currency) ? ` · ${formatAmount(p.amountMinor, str(p.currency))}` : '';
       return `${verb} "${str(p.description)}"${amount}`;
     }
+    case 'settlement.recorded':
+    case 'settlement.updated':
+    case 'settlement.deleted':
+    case 'settlement.restored':
+    case 'settlement.disputed':
+    case 'settlement.dispute_withdrawn': {
+      const amount = typeof p.amountMinor === 'number' && str(p.currency) ? formatAmount(p.amountMinor, str(p.currency)) : '';
+      const pay = `${str(p.from)} → ${str(p.to)} ${amount}`;
+      const verb = {
+        'settlement.recorded': 'recorded a payment',
+        'settlement.updated': 'edited a payment',
+        'settlement.deleted': 'deleted a payment',
+        'settlement.restored': 'restored a payment',
+        'settlement.disputed': 'disputed a payment',
+        'settlement.dispute_withdrawn': 'withdrew a dispute on',
+      }[e.type];
+      return `${verb}: ${pay}${e.type === 'settlement.disputed' && str(p.note) ? ` — "${str(p.note)}"` : ''}`;
+    }
     default:
       return e.type;
   }

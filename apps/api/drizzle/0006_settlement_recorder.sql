@@ -1,0 +1,1 @@
+ALTER TABLE "settlements" DROP CONSTRAINT "settlements_recorded_by_party";

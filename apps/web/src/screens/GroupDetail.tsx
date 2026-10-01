@@ -1,10 +1,17 @@
-import { formatAmount, type ExpenseView, type GroupDetail as Group, type Transfer } from '@splity/shared';
-import { Plus, Receipt, Settings, UserPlus } from 'lucide-react';
+import {
+  canRecordSettlement,
+  formatAmount,
+  type ExpenseView,
+  type GroupDetail as Group,
+  type SettlementView,
+  type Transfer,
+} from '@splity/shared';
+import { HandCoins, Plus, Receipt, Settings, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ActivityLog } from '../components/ActivityLog';
 import { Avatar, Badge, EmptyState, Money, Sheet, Toggle, TopBar, useShareLink } from '../components/ui';
-import { errorMessage, useBalances, useExpenses, useGroup, useGroupActivity, useUpdateGroup } from '../lib/api';
+import { errorMessage, useBalances, useExpenses, useGroup, useGroupActivity, useSettlements, useUpdateGroup } from '../lib/api';
 import { CategoryIcon, nameLookup } from '../lib/expenses';
 import { signedAmount } from '../lib/format';
 
@@ -121,6 +128,7 @@ const monthFormat = new Intl.DateTimeFormat('en-IN', { month: 'short' });
 
 function Expenses({ group }: { group: Group }) {
   const expenses = useExpenses(group.id);
+  const payments = useSettlements(group.id);
   const [showDeleted, setShowDeleted] = useState(false);
   const deleted = useExpenses(group.id, { deleted: true });
 
@@ -135,10 +143,10 @@ function Expenses({ group }: { group: Group }) {
   const deletedCount = deleted.data?.length ?? 0;
   return (
     <div className="stack">
-      {expenses.data.length === 0 ? (
+      {expenses.data.length === 0 && !payments.data?.length ? (
         <EmptyState icon={Receipt} line="> NO EXPENSES YET" text="Add the first one and Splity will keep score." />
       ) : (
-        <ExpenseList group={group} expenses={expenses.data} />
+        <ExpenseList group={group} expenses={expenses.data} settlements={payments.data ?? []} />
       )}
       {deletedCount > 0 && (
         <button type="button" className="key key--text" onClick={() => setShowDeleted(!showDeleted)}>
@@ -150,13 +158,23 @@ function Expenses({ group }: { group: Group }) {
   );
 }
 
-function ExpenseList({ group, expenses, muted }: { group: Group; expenses: ExpenseView[]; muted?: boolean }) {
+type Entry = { kind: 'expense'; date: string; at: string; e: ExpenseView } | { kind: 'payment'; date: string; at: string; s: SettlementView };
+
+/** Expenses and payments in one timeline, newest first. */
+function ExpenseList(props: { group: Group; expenses: ExpenseView[]; settlements?: SettlementView[]; muted?: boolean }) {
+  const { group, muted } = props;
   const name = nameLookup(group);
   const me = group.you.memberId;
   const cur = group.currency;
+  const entries: Entry[] = [
+    ...props.expenses.map((e) => ({ kind: 'expense' as const, date: e.expenseDate, at: e.createdAt, e })),
+    ...(props.settlements ?? []).map((s) => ({ kind: 'payment' as const, date: s.settledOn, at: s.createdAt, s })),
+  ].sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
   return (
     <ul className="list">
-      {expenses.map((e) => {
+      {entries.map((entry) => {
+        if (entry.kind === 'payment') return <PaymentRow key={entry.s.id} group={group} s={entry.s} />;
+        const e = entry.e;
         const date = new Date(`${e.expenseDate}T00:00:00`);
         const paid = e.payers.find((p) => p.memberId === me)?.paidMinor ?? 0;
         const owed = e.splits.find((s) => s.memberId === me)?.owedMinor ?? 0;
@@ -202,6 +220,44 @@ function ExpenseList({ group, expenses, muted }: { group: Group; expenses: Expen
   );
 }
 
+function DateStub({ iso }: { iso: string }) {
+  const date = new Date(`${iso}T00:00:00`);
+  return (
+    <span className="date-stub" aria-hidden="true">
+      <span className="date-stub__day">{dayFormat.format(date)}</span>
+      <span className="date-stub__month">{monthFormat.format(date).toUpperCase()}</span>
+    </span>
+  );
+}
+
+function PaymentRow({ group, s }: { group: Group; s: SettlementView }) {
+  const name = nameLookup(group);
+  const me = group.you.memberId;
+  const text = s.fromMember === me ? `You paid ${name(s.toMember)}` : s.toMember === me ? `${name(s.fromMember)} paid you` : `${name(s.fromMember)} paid ${name(s.toMember)}`;
+  return (
+    <li>
+      <Link to={`/groups/${group.id}/settlements/${s.id}`} className="row">
+        <DateStub iso={s.settledOn} />
+        <span className="row__main">
+          <span className="row__title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <HandCoins size={16} aria-hidden="true" />
+            <span className="row__title">{text}</span>
+          </span>
+          <span className="small text-muted">
+            Payment · {s.method === 'upi' ? 'UPI' : s.method}{' '}
+            {s.disputedBy && (
+              <Badge tone="amber" led="amber">
+                Disputed
+              </Badge>
+            )}
+          </span>
+        </span>
+        <span className="row__end small amount text-secondary">{formatAmount(s.amountMinor, group.currency)}</span>
+      </Link>
+    </li>
+  );
+}
+
 function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
   const update = useUpdateGroup(group.id);
   const balances = useBalances(group.id);
@@ -225,6 +281,8 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
   const mine = transfers.filter((t) => t.from === me || t.to === me);
   const others = transfers.filter((t) => t.from !== me && t.to !== me);
   const memberById = new Map(group.members.map((m) => [m.id, m]));
+  // Removed members may still settle what they owe.
+  const canSettle = !group.archived;
 
   return (
     <div className="stack">
@@ -257,8 +315,16 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
                       </button>
                     )}
                   </span>
-                  <span className="row__end">
+                  <span className="row__end stack stack--sm" style={{ alignItems: 'flex-end' }}>
                     <Money netMinor={youOwe ? -1 : 1}>{formatAmount(t.amountMinor, cur)}</Money>
+                    {canSettle && (
+                      <Link
+                        to={`/groups/${group.id}/settle?from=${t.from}&to=${t.to}&amount=${t.amountMinor}`}
+                        className={`key key--compact ${youOwe ? 'key--primary' : 'key--secondary'}`}
+                      >
+                        {youOwe ? 'Settle' : 'Record'}
+                      </Link>
+                    )}
                   </span>
                 </li>
               );
@@ -295,8 +361,26 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
             <button type="button" className="key key--text" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
               {showAll ? '▾' : '▸'} Show all payments ({transfers.length})
             </button>
-            {showAll && <TransferList transfers={transfers} name={name} currency={cur} />}
+            {showAll && (
+              <TransferList
+                transfers={transfers}
+                name={name}
+                currency={cur}
+                recordHref={(t) => {
+                  const from = memberById.get(t.from);
+                  const to = memberById.get(t.to);
+                  return canSettle && from && to && canRecordSettlement(me, from, to)
+                    ? `/groups/${group.id}/settle?from=${t.from}&to=${t.to}&amount=${t.amountMinor}`
+                    : null;
+                }}
+              />
+            )}
           </>
+        )}
+        {canSettle && (
+          <Link to={`/groups/${group.id}/settle`} className="key key--text">
+            <HandCoins size={18} aria-hidden="true" /> Record a payment
+          </Link>
         )}
       </section>
 
@@ -324,17 +408,34 @@ function Balances({ group, canWrite }: { group: Group; canWrite: boolean }) {
   );
 }
 
-function TransferList({ transfers, name, currency }: { transfers: Transfer[]; name: (id: string) => string; currency: string }) {
+function TransferList(props: {
+  transfers: Transfer[];
+  name: (id: string) => string;
+  currency: string;
+  /** Link to record this payment, when the viewer may. */
+  recordHref?: (t: Transfer) => string | null;
+}) {
+  const { transfers, name, currency } = props;
   return (
     <ul className="log">
-      {transfers.map((t) => (
-        <li key={`${t.from}-${t.to}`} className="log__line" style={{ gridTemplateColumns: '1fr auto' }}>
-          <span>
-            {name(t.from)} → {name(t.to)}
-          </span>
-          <span className="amount">{formatAmount(t.amountMinor, currency)}</span>
-        </li>
-      ))}
+      {transfers.map((t) => {
+        const href = props.recordHref?.(t);
+        return (
+          <li key={`${t.from}-${t.to}`} className="log__line" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
+            <span>
+              {name(t.from)} → {name(t.to)}
+            </span>
+            <span className="amount">{formatAmount(t.amountMinor, currency)}</span>
+            {href ? (
+              <Link to={href} className="link-button" aria-label={`Record payment from ${name(t.from)} to ${name(t.to)}`}>
+                record ›
+              </Link>
+            ) : (
+              <span />
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

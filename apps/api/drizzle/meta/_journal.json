@@ -43,6 +43,13 @@
       "when": 1790847196045,
       "tag": "0005_activity_seq",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790847730297,
+      "tag": "0006_settlement_recorder",
+      "breakpoints": true
     }
   ]
 }

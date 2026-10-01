@@ -1095,3 +1095,9 @@ select.input {
   color: var(--text-muted);
   font-size: var(--text-small);
 }
+
+.key--compact {
+  min-height: var(--touch);
+  padding: 0 var(--space-md);
+  font-size: 1.125rem;
+}

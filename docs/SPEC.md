@@ -155,6 +155,18 @@ and transparency beat feature breadth. No growth/monetization goals.
 - **"Pay via UPI"** button opens a UPI deep link pre-filled with the receiver's UPI ID and amount
   (if the receiver has set one). Payment is not verified; the user records/confirms it in-app.
 
+### Settlement details (decided 2026-10-01)
+- **Placeholders:** when either side of a payment is a placeholder, **any member** can record,
+  edit or delete it on their behalf; it shows "recorded by <name>". Between two real users only
+  those two can.
+- **Disputes:** only a real party who didn't record it can dispute (with an optional note). A
+  disputed payment still counts. **Editing it clears the dispute**; the disputer can also
+  withdraw it. Payments can be deleted and restored like expenses, with `version` checks.
+- **Removed members** can still record and change payments they're part of, nothing else.
+- **UPI button** appears only when you are the payer, the group is in INR and the receiver has
+  a UPI ID; payment isn't verified, so the user records it afterwards.
+- **Reminders** ship with push notifications (they need push to be delivered).
+
 ## 6. Activity & Notifications
 
 - **Activity feed** per group logs every event: expense added/edited/deleted/restored,

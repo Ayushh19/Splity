@@ -8,6 +8,7 @@ import { users } from './db/schema';
 import { body, HttpError, requireUser, type AppEnv } from './http';
 import { expenseRoutes } from './routes/expenses';
 import { groupRoutes } from './routes/groups';
+import { settlementRoutes } from './routes/settlements';
 import { inviteRoutes } from './routes/invites';
 
 export interface AppDeps {
@@ -75,6 +76,7 @@ export function createApp({ db, auth, baseUrl, features }: AppDeps) {
 
   app.route('/groups', groupRoutes({ db, auth, baseUrl }));
   app.route('/groups/:groupId', expenseRoutes({ db, auth }));
+  app.route('/groups/:groupId', settlementRoutes({ db, auth }));
   app.route('/invites', inviteRoutes({ db, auth, baseUrl }));
 
   return app;

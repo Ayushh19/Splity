@@ -19,7 +19,13 @@ export type ActivityType =
   | 'expense.created'
   | 'expense.updated'
   | 'expense.deleted'
-  | 'expense.restored';
+  | 'expense.restored'
+  | 'settlement.recorded'
+  | 'settlement.updated'
+  | 'settlement.deleted'
+  | 'settlement.restored'
+  | 'settlement.disputed'
+  | 'settlement.dispute_withdrawn';
 
 export async function logActivity(
   db: DbOrTx,
