@@ -1,0 +1,28 @@
+export interface MagicLinkEmail {
+  to: string;
+  url: string;
+}
+
+export type SendMagicLink = (email: MagicLinkEmail) => Promise<void>;
+
+/** Local development: print the link instead of sending an email. */
+export const logMagicLink: SendMagicLink = async ({ to, url }) => {
+  console.log(`\n[magic link] ${to}\n  ${url}\n`);
+};
+
+/** Send through Resend's HTTP API (no SDK needed). */
+export function resendMagicLink(apiKey: string, from: string): SendMagicLink {
+  return async ({ to, url }) => {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: 'Your Splity sign-in link',
+        text: `Tap to sign in to Splity:\n\n${url}\n\nThe link works once and expires in 10 minutes. If you didn't ask for it, ignore this email.`,
+      }),
+    });
+    if (!res.ok) throw new Error(`Resend failed (${res.status}): ${await res.text()}`);
+  };
+}

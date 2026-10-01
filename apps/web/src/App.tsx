@@ -1,36 +1,79 @@
-import { useEffect, useState } from 'react';
-import { computeSplit, formatAmount, memberOrder } from '@splity/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { useMe } from './lib/api';
+import { Home } from './screens/Home';
+import { SignIn } from './screens/SignIn';
+import { Welcome } from './screens/Welcome';
 
-// Placeholder screen: proves the web app, the shared money package and the API are wired together.
-const order = memberOrder([
-  { id: 'you', sortKey: 1 },
-  { id: 'priya', sortKey: 2 },
-  { id: 'arjun', sortKey: 3 },
-]);
-const example = computeSplit(100000, { method: 'equal', participants: ['you', 'priya', 'arjun'] }, order);
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } },
+});
 
 export function App() {
-  const [api, setApi] = useState('checking…');
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
-      .then((body: { status: string }) => setApi(body.status))
-      .catch(() => setApi('unreachable'));
-  }, []);
-
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: 16, maxWidth: 480, margin: '0 auto' }}>
-      <h1>Splity</h1>
-      <p>₹1,000 split three ways:</p>
-      <ul>
-        {example.map((o) => (
-          <li key={o.memberId}>
-            {o.memberId}: {formatAmount(o.owedMinor, 'INR')}
-          </li>
-        ))}
-      </ul>
-      <p>API: {api}</p>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/sign-in"
+            element={
+              <Gate when="signed-out">
+                <SignIn />
+              </Gate>
+            }
+          />
+          <Route
+            path="/welcome"
+            element={
+              <Gate when="signed-in">
+                <Welcome />
+              </Gate>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <Gate when="signed-in" requireName>
+                <Home />
+              </Gate>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
+
+/** Route guard: sends people to sign-in, to the name step, or home, depending on their session. */
+function Gate({ when, requireName, children }: { when: 'signed-in' | 'signed-out'; requireName?: boolean; children: ReactNode }) {
+  const me = useMe();
+
+  if (me.isPending) return <LoadingScreen />;
+  if (me.isError) {
+    return (
+      <main className="screen screen--centered">
+        <p className="banner banner--error" role="alert">
+          Can't reach Splity right now. Check your connection and reload.
+        </p>
+      </main>
+    );
+  }
+
+  const user = me.data;
+  if (when === 'signed-out') return user ? <Navigate to="/" replace /> : children;
+  if (!user) return <Navigate to="/sign-in" replace />;
+  if (requireName && !user.displayName) return <Navigate to="/welcome" replace />;
+  return children;
+}
+
+function LoadingScreen() {
+  return (
+    <main className="screen" aria-busy="true" aria-label="Loading">
+      <div className="skeleton" style={{ height: 32, width: '40%' }} />
+      <div className="skeleton" style={{ height: 120 }} />
+      <div className="skeleton" style={{ height: 48 }} />
     </main>
   );
 }

@@ -1,0 +1,89 @@
+/* Design tokens — values from docs/DESIGN.md front matter. Change them there first. */
+:root {
+  color-scheme: dark;
+
+  /* Palette */
+  --crt-green: #33ff00;
+  --phosphor-amber: #ffb000;
+  --tape-red: #cc0000;
+  --warm-beige: #d2b48c;
+  --off-white: #e8e0d0;
+  --static-grey: #a6a6a6;
+  --charcoal: #333333;
+  --deep-navy: #1b2838;
+  --off-black: #1a1a1a;
+
+  /* Roles */
+  --background: var(--off-black);
+  --surface: #242424;
+  --surface-raised: var(--charcoal);
+  --border: #4a4a4a;
+  --text: var(--off-white);
+  --text-secondary: var(--warm-beige);
+  --text-muted: var(--static-grey);
+  --primary: var(--crt-green);
+  --on-primary: var(--off-black);
+  --owed-to-you: var(--crt-green);
+  --you-owe: var(--phosphor-amber);
+  --settled: var(--static-grey);
+  --warning: var(--phosphor-amber);
+  --danger: var(--tape-red);
+  --danger-text: #ff6b6b;
+  --on-danger: #f4efe6;
+  --focus: var(--crt-green);
+
+  /* Type */
+  --font-display: 'VT323', ui-monospace, monospace;
+  --font-body: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  --text-display: clamp(2.75rem, 12vw, 4rem);
+  --text-h1: 2.25rem;
+  --text-h2: 1.75rem;
+  --text-label: 1.25rem;
+  --text-body: 0.9375rem;
+  --text-small: 0.8125rem;
+  --text-amount-input: 2.5rem;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --gutter: 16px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+  --border-hairline: 1px;
+  --border-chunky: 2px;
+
+  /* Elevation */
+  --shadow-key: 0 3px 0 #0d0d0d;
+  --shadow-key-pressed: 0 1px 0 #0d0d0d;
+  --shadow-bevel: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-sheet: 0 -8px 24px rgba(0, 0, 0, 0.5);
+  --glow-green: 0 0 6px rgba(51, 255, 0, 0.45);
+  --glow-amber: 0 0 6px rgba(255, 176, 0, 0.45);
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Layers */
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-scanlines: 400;
+  --z-toast: 500;
+
+  /* Layout */
+  --max-content: 560px;
+  --tab-bar-height: 64px;
+  --touch: 44px;
+}

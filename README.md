@@ -23,9 +23,15 @@ Requires Node 22+ and pnpm 10.
 
 ```sh
 pnpm install
+cp apps/api/.env.example apps/api/.env   # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
 pnpm test          # all packages
 pnpm typecheck
 pnpm --filter @splity/api db:migrate   # create/upgrade the local PGlite database in apps/api/.data
 pnpm dev:api       # http://localhost:8787/api/health
-pnpm dev:web       # http://localhost:5173 (proxies /api to the API)
+pnpm dev:web       # http://localhost:3000 (proxies /api to the API)
 ```
+
+Sign in locally with any email: the magic link is printed in the `dev:api` console. Google
+sign-in turns on when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
+`GOOGLE_REDIRECT_URI` (here `http://localhost:3000`) must match the OAuth client's authorized
+redirect URI exactly; Google returns to the app root and the web app forwards to the API callback.

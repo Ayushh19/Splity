@@ -9,13 +9,15 @@ Free-tier limits verified October 2026.
 |---|---|
 | Repo | pnpm workspaces monorepo: `apps/web`, `apps/api`, `packages/shared` |
 | Frontend | React + Vite + TypeScript, `vite-plugin-pwa` |
+| Routing | React Router (library mode) |
 | Server state | TanStack Query |
+| Styling | Plain CSS with custom properties generated from `docs/DESIGN.md` tokens (`apps/web/src/styles/`); Lucide icons; self-hosted VT323 + JetBrains Mono via Fontsource |
 | Validation | Zod (in `packages/shared`, used by both web and api) |
 | Backend | Node + TypeScript, **Hono**, deployed as Vercel Functions (Node runtime) |
 | Database access | **Drizzle ORM** + hand-written SQL migrations for triggers/partial indexes |
 | Database | **PGlite** (PostgreSQL compiled to WASM, embedded in Node, data in a local folder) for development. **Production database: not decided yet** |
-| Auth | **Better Auth** — Google OAuth + email magic link, tables in our Postgres |
-| Email | **Resend** (magic links only) |
+| Auth | **Better Auth 1.7** — Google OAuth + email magic link, using our `users` table (`usePlural`, UUID ids) plus `sessions`, `accounts`, `verifications`. 60-day sessions, single-use hashed magic links valid 10 min, Google and magic link for the same email share one account. Origin checks forced on even under `NODE_ENV=test` |
+| Email | **Resend** (magic links only), optional: without `RESEND_API_KEY` links are printed in the API console |
 | Push | Web Push via `web-push` + VAPID keys |
 | Receipts | **Cloudflare R2**, browser uploads directly via presigned URL |
 | Scheduled jobs | **Vercel Cron**, once daily (recurring expenses) |
