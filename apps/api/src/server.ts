@@ -21,7 +21,7 @@ serve({ fetch: app.fetch, port }, () => {
   const db = config.database;
   console.log('url' in db ? `Database: PostgreSQL at ${new URL(db.url).host}` : `Database: PGlite in ${db.dir}`);
   if (!config.google) console.log('Google sign-in disabled: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
-  if (!config.resendApiKey) console.log('Magic links are printed here (no RESEND_API_KEY)');
-  else console.log(`Magic links are emailed from ${config.emailFrom}`);
+  if (!config.smtp) console.log('Magic links are printed here (no SMTP_USER/SMTP_PASS)');
+  else console.log(`Magic links are emailed from ${config.emailFrom} via ${config.smtp.host}`);
   if (!config.vapid) console.log('Push notifications disabled: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY');
 });

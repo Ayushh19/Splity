@@ -17,7 +17,7 @@ Free-tier limits verified October 2026.
 | Database access | **Drizzle ORM** + hand-written SQL migrations for triggers/partial indexes |
 | Database | **Neon** (hosted PostgreSQL, free tier) in production via `pg` (node-postgres) and `DATABASE_URL`; **PGlite** (PostgreSQL compiled to WASM, embedded in Node, data in a local folder) for development and tests |
 | Auth | **Better Auth 1.7** — Google OAuth + email magic link, using our `users` table (`usePlural`, UUID ids) plus `sessions`, `accounts`, `verifications`. 60-day sessions, single-use hashed magic links valid 10 min, Google and magic link for the same email share one account. Origin checks forced on even under `NODE_ENV=test` |
-| Email | **Resend** (magic links only), optional: without `RESEND_API_KEY` links are printed in the API console |
+| Email | **SMTP via `nodemailer`** (magic links only), set up with a Gmail account + app password; optional: without `SMTP_USER`/`SMTP_PASS` links are printed in the API console |
 | Push | Web Push via `web-push` + VAPID keys (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`; push is off without them). Hand-written `public/sw.js` (push + notification clicks only, no caching) and `manifest.webmanifest`; `vite-plugin-pwa`/Workbox not used since v1 has no offline mode |
 | Receipts | **Cloudflare R2**, browser uploads directly via presigned URL |
 | Scheduled jobs | Recurring expenses: the long-running API server runs the job at startup and hourly; for serverless hosting, `GET/POST /api/cron/recurring` with `Authorization: Bearer $CRON_SECRET` (what Vercel Cron sends). Idempotent, so both can run |
@@ -56,6 +56,10 @@ sum to the total, nets always sum to zero).
   with `pg` to the *pooled* endpoint, not Neon's HTTP driver, because the API uses interactive
   transactions. Production deploys run migrations during the build; previews don't (they share the
   production database).
+- **Gmail SMTP instead of Resend (decided 2026-10-18):** Resend only delivers to other people
+  from a verified domain, and we don't have one. Sending straight from our own server isn't an
+  option (Vercel can't use port 25, and mail from an unknown server lands in spam), so the API
+  sends through a Gmail account over SMTP. Links come from that Gmail address.
 - **One bundled function:** the API imports workspace TypeScript with extensionless imports, which
   Vercel's own per-file compilation can't run, so esbuild bundles it into a single file and PGlite
   is left out (loaded lazily, only without `DATABASE_URL`).
@@ -66,7 +70,7 @@ sum to the total, nets always sum to zero).
 |---|---|---|
 | Neon | 0.5 GB storage per project, 100 compute-hours/month, scales to zero after 5 min idle | A friends app stays far below both; first request after idling waits for a sub-second wake-up |
 | Vercel Hobby | **Non-commercial use only.** Functions max 300 s. Cron at most **once per day**, fires anywhere within the scheduled hour, UTC | Friends app = non-commercial. Recurring job runs daily ~00:30 IST (19:00 UTC); handlers stay well under 300 s |
-| Resend | 100 emails/day, 3,000/month | Magic links only; Google is the primary sign-in |
+| Gmail SMTP | ~500 recipients/day per account | Magic links only; Google is the primary sign-in |
 | Cloudflare R2 | 10 GB storage, 1M writes, 10M reads/month, free egress | Compress receipts in the browser to ~1600 px JPEG (~300–500 KB) before upload → ~20k+ receipts. Cloudflare may require a payment method on file to enable R2 |
 | Web Push | Free (browser vendors' push services) | — |
 
@@ -77,5 +81,5 @@ sum to the total, nets always sum to zero).
   must create *all* series due on or before today, not just "exactly today".
 - **Push on iOS** only works once the PWA is added to the home screen (iOS 16.4+); the app should
   prompt iOS users to install it.
-- **Secrets:** Google OAuth client, Better Auth secret, VAPID keys, R2 keys, Resend key, database URL —
+- **Secrets:** Google OAuth client, Better Auth secret, VAPID keys, R2 keys, SMTP app password, database URL —
   all as Vercel environment variables, never in the repo.

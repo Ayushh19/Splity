@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+
 export interface MagicLinkEmail {
   to: string;
   url: string;
@@ -27,19 +29,30 @@ export function withDevFallback(send: SendMagicLink, isProduction: boolean): Sen
   };
 }
 
-/** Send through Resend's HTTP API (no SDK needed). */
-export function resendMagicLink(apiKey: string, from: string): SendMagicLink {
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+}
+
+/**
+ * Send over SMTP from your own mail account (e.g. Gmail with an app password). No domain or
+ * mail provider needed; the message goes out as that account.
+ */
+export function smtpMagicLink(smtp: SmtpConfig, from: string): SendMagicLink {
+  const transport = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.port === 465, // 465 is TLS from the start; 587 upgrades with STARTTLS
+    auth: { user: smtp.user, pass: smtp.pass },
+  });
   return async ({ to, url }) => {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to,
-        subject: 'Your Splity sign-in link',
-        text: `Tap to sign in to Splity:\n\n${url}\n\nThe link works once and expires in 10 minutes. If you didn't ask for it, ignore this email.`,
-      }),
+    await transport.sendMail({
+      from,
+      to,
+      subject: 'Your Splity sign-in link',
+      text: `Tap to sign in to Splity:\n\n${url}\n\nThe link works once and expires in 10 minutes. If you didn't ask for it, ignore this email.`,
     });
-    if (!res.ok) throw new Error(`Resend failed (${res.status}): ${await res.text()}`);
   };
 }

@@ -1,3 +1,5 @@
+import type { SmtpConfig } from './email';
+
 /** Environment configuration, read once at startup. See .env.example. */
 export interface Config {
   /** Public origin of the app (the web origin; /api is served from it). */
@@ -7,7 +9,8 @@ export interface Config {
   database: { url: string } | { dir: string };
   /** `redirectUri` must exactly match an authorized redirect URI in Google Cloud Console. */
   google: { clientId: string; clientSecret: string; redirectUri: string } | null;
-  resendApiKey: string | null;
+  /** Sends magic links over SMTP (e.g. Gmail); null prints them in the API console instead. */
+  smtp: SmtpConfig | null;
   /** Web Push keys; null disables push notifications. */
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
   emailFrom: string;
@@ -30,6 +33,10 @@ export function loadConfig(): Config {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
+  const smtpUser = process.env.SMTP_USER || undefined;
+  // Gmail shows app passwords in groups of four ("abcd efgh ..."); spaces aren't part of it.
+  const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, '') || undefined;
+
   const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
 
   return {
@@ -46,7 +53,7 @@ export function loadConfig(): Config {
             redirectUri: process.env.GOOGLE_REDIRECT_URI || `${baseUrl}/api/auth/callback/google`,
           }
         : null,
-    resendApiKey: process.env.RESEND_API_KEY || null,
+    smtp: smtpUser && smtpPass ? { host: process.env.SMTP_HOST || 'smtp.gmail.com', port: Number(process.env.SMTP_PORT || 465), user: smtpUser, pass: smtpPass } : null,
     vapid:
       process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
         ? {
@@ -55,7 +62,7 @@ export function loadConfig(): Config {
             subject: process.env.VAPID_SUBJECT || 'mailto:admin@splity.local',
           }
         : null,
-    emailFrom: process.env.EMAIL_FROM || 'Splity <onboarding@resend.dev>',
+    emailFrom: process.env.EMAIL_FROM || `Splity <${smtpUser ?? 'splity@localhost'}>`,
     appTimezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
     cronSecret: process.env.CRON_SECRET || null,
   };

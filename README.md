@@ -54,11 +54,13 @@ To run the API tests against a real PostgreSQL server instead of PGlite (wipes i
 2. **Vercel** (Hobby): import the GitHub repo with the root directory left as the repo root;
    `vercel.json` sets the install and build commands. Add environment variables (Production):
    `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (`https://<project>.vercel.app`),
-   `CRON_SECRET` (random), `APP_TIMEZONE`, and optionally Google, Resend and VAPID keys.
+   `CRON_SECRET` (random), `APP_TIMEZONE`, and optionally Google, SMTP (`SMTP_USER`, `SMTP_PASS`) and VAPID keys.
    Pick the Functions region next to the Neon region.
 3. **Google sign-in**: add `https://<project>.vercel.app/api/auth/callback/google` as an
    authorized redirect URI (leave `GOOGLE_REDIRECT_URI` unset), and publish the OAuth consent
    screen or add friends as test users.
-4. **Magic links for friends** need a domain verified in Resend and `EMAIL_FROM` on it.
+4. **Magic links** are sent over SMTP. With Gmail: enable 2-Step Verification, create an app
+   password at https://myaccount.google.com/apppasswords, and set `SMTP_USER` (your Gmail
+   address) and `SMTP_PASS` (the app password). No domain needed.
 5. On the phone: open the URL, then *Add to Home Screen*. On iOS, push only works from the
    installed app, and a magic link opens in Safari (not the installed app), so prefer Google there.
