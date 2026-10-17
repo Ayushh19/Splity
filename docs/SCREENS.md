@@ -52,7 +52,7 @@ Inside G2 → **Balances**:
 | # | Screen | Purpose |
 |---|---|---|
 | E1 | **Sign in** | "Continue with Google", "Email me a link" |
-| E2 | Magic link sent | "Check your inbox", resend (rate-limited) |
+| E2 | Magic link sent | "Check your inbox"; recessed panel with the address; 6-digit code input + **Sign in** (the email carries both a code and a link); "check Spam/Promotions" tip; resend (rate-limited); use a different email |
 | E3 | **Invite landing** (`/join/<token>`) | Group name + members. Pick an unclaimed placeholder ("I'm Rahul") or "Join as new member". Signs in first if needed |
 
 ### Main (logged in)

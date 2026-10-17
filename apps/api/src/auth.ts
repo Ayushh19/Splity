@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { emailOTP } from 'better-auth/plugins/email-otp';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import type { Db } from './db/client';
 import { accounts, sessions, users, verifications } from './db/schema';
@@ -13,8 +14,11 @@ export interface AuthOptions {
   sendMagicLink: SendMagicLink;
 }
 
+/** Sign-in links and codes expire together. */
+const SIGN_IN_TTL_SECONDS = 60 * 10;
+
 export function createAuth({ db, baseUrl, secret, google, sendMagicLink }: AuthOptions) {
-  return betterAuth({
+  const auth = betterAuth({
     appName: 'Splity',
     baseURL: baseUrl,
     basePath: '/api/auth',
@@ -59,14 +63,42 @@ export function createAuth({ db, baseUrl, secret, google, sendMagicLink }: AuthO
       : {},
     // Failed sign-ins (cancelled at Google, expired state, …) land on our sign-in screen with ?error=…
     onAPIError: { errorURL: `${baseUrl}/sign-in` },
+    // The email-OTP plugin is only used to check sign-in codes; codes are created and emailed
+    // together with the magic link below, so its own send/verify-email/password routes are off.
+    disabledPaths: [
+      '/email-otp/send-verification-otp',
+      '/email-otp/check-verification-otp',
+      '/email-otp/verify-email',
+      '/email-otp/request-password-reset',
+      '/forget-password/email-otp',
+      '/email-otp/reset-password',
+      '/email-otp/request-email-change',
+      '/email-otp/change-email',
+    ],
     plugins: [
       magicLink({
-        expiresIn: 60 * 10,
+        expiresIn: SIGN_IN_TTL_SECONDS,
         storeToken: 'hashed',
-        sendMagicLink: ({ email, url }) => sendMagicLink({ to: email, url }),
+        // One email carries both: the link (opens in the default browser) and a 6-digit code to
+        // type into the app, e.g. the installed iPhone app, which doesn't share Safari's cookies.
+        // A new request replaces the previous code.
+        sendMagicLink: async ({ email, url }) => {
+          const code = await auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } });
+          await sendMagicLink({ to: email, url, code });
+        },
+      }),
+      emailOTP({
+        otpLength: 6,
+        expiresIn: SIGN_IN_TTL_SECONDS,
+        storeOTP: 'hashed',
+        allowedAttempts: 5,
+        sendVerificationOTP: async () => {
+          throw new Error('Sign-in codes are sent with the magic link');
+        },
       }),
     ],
   });
+  return auth;
 }
 
 export type Auth = ReturnType<typeof createAuth>;

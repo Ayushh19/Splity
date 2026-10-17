@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Mail } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { TypedLine } from '../components/TypedLine';
 import { useAuthConfig } from '../lib/api';
@@ -7,6 +8,13 @@ import { safeNext } from '../lib/format';
 import { authClient } from '../lib/auth-client';
 
 const RESEND_AFTER_SECONDS = 60;
+const CODE_LENGTH = 6;
+
+const codeErrors: Record<string, string> = {
+  INVALID_OTP: "That code isn't right. Check the email and try again.",
+  OTP_EXPIRED: 'That code has expired. Send a new one below.',
+  TOO_MANY_ATTEMPTS: 'Too many wrong codes. Send a new one below.',
+};
 
 const signInErrors: Record<string, string> = {
   EXPIRED_TOKEN: 'That link has expired. Request a new one below.',
@@ -145,7 +153,12 @@ function LinkSent(props: {
   onResend: () => void;
   onChangeEmail: () => void;
 }) {
+  const queryClient = useQueryClient();
   const [wait, setWait] = useState(RESEND_AFTER_SECONDS);
+  const [code, setCode] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const codeInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -153,19 +166,116 @@ function LinkSent(props: {
     return () => clearTimeout(timer);
   }, [wait]);
 
+  // After a wrong code the input is enabled again: put the cursor back for the next try.
+  useEffect(() => {
+    if (codeError && !checking) codeInput.current?.focus();
+  }, [codeError, checking]);
+
+  async function submitCode(otp: string) {
+    if (otp.length !== CODE_LENGTH || checking) return;
+    setChecking(true);
+    setCodeError(null);
+    const { error } = await authClient.signIn.emailOtp({ email: props.email, otp });
+    if (error) {
+      setChecking(false);
+      setCode('');
+      setCodeError(
+        error.status === 429
+          ? 'Too many tries. Wait a minute and try again.'
+          : (codeErrors[error.code ?? ''] ?? "Couldn't check the code. Check your connection and try again."),
+      );
+      return;
+    }
+    // Signed in: the sign-in route's guard sends the user on (to /welcome first if they're new).
+    await queryClient.refetchQueries({ queryKey: ['me'] });
+  }
+
+  function onCodeChange(value: string) {
+    // Accepts typing, autofill and pasting "482 913" or "Your code is 482913".
+    const digits = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
+    setCode(digits);
+    if (codeError) setCodeError(null);
+    if (digits.length === CODE_LENGTH) void submitCode(digits);
+  }
+
   return (
     <main className="screen screen--centered">
       <TypedLine text="> CHECK YOUR INBOX" className="h1 glow-green" />
-      <p>
-        We sent a sign-in link to <strong className="text-secondary">{props.email}</strong>. It works once and
-        expires in 10 minutes.
-      </p>
+
+      <div className="readout sent-to">
+        <p className="label readout__label">SENT TO</p>
+        <p className="sent-to__email">
+          {/* Long addresses wrap after the @ rather than mid-word. */}
+          {props.email.split('@')[0]}
+          <wbr />@{props.email.split('@').slice(1).join('@')}
+        </p>
+      </div>
+
+      <p>Type the 6-digit code from the email, or tap the link in it to sign in on this device.</p>
 
       {props.error && (
         <p className="banner banner--error" role="alert">
           {props.error}
         </p>
       )}
+
+      <form
+        className="stack"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          void submitCode(code);
+        }}
+        noValidate
+      >
+        <div className="field">
+          <label className="label field__label" htmlFor="code">
+            Code
+          </label>
+          <div className={`code-input${codeError ? ' code-input--error' : ''}`}>
+            <input
+              ref={codeInput}
+              id="code"
+              className="code-input__field"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={CODE_LENGTH + 8 /* room for pasted spaces/text */}
+              value={code}
+              onChange={(e) => onCodeChange(e.target.value)}
+              disabled={checking}
+              aria-invalid={codeError ? 'true' : undefined}
+              aria-describedby="code-help"
+              autoFocus
+            />
+            {Array.from({ length: CODE_LENGTH }, (_, i) => (
+              <span
+                key={i}
+                aria-hidden="true"
+                className={`code-input__cell${code[i] ? ' code-input__cell--filled' : ''}${
+                  i === Math.min(code.length, CODE_LENGTH - 1) && !checking ? ' code-input__cell--active' : ''
+                }`}
+              >
+                {code[i] ?? ''}
+              </span>
+            ))}
+          </div>
+          {codeError ? (
+            <p className="field__error" id="code-help" role="alert">
+              {codeError}
+            </p>
+          ) : (
+            <p className="field__help" id="code-help">
+              The code and link work once and expire in 10 minutes.
+            </p>
+          )}
+        </div>
+        <button type="submit" className="key key--primary key--block" disabled={checking || code.length !== CODE_LENGTH}>
+          {checking ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+
+      <p className="small text-muted">Not there? Check Spam and Promotions. It comes from Splity.</p>
 
       <div className="stack stack--sm">
         <button
@@ -175,9 +285,11 @@ function LinkSent(props: {
           onClick={() => {
             props.onResend();
             setWait(RESEND_AFTER_SECONDS);
+            setCode('');
+            setCodeError(null);
           }}
         >
-          {wait > 0 ? `Resend in ${wait}s` : props.sending ? 'Sending…' : 'Resend link'}
+          {wait > 0 ? `Resend in ${wait}s` : props.sending ? 'Sending…' : 'Send a new code'}
         </button>
         <button type="button" className="key key--text" onClick={props.onChangeEmail}>
           Use a different email

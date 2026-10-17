@@ -8,7 +8,11 @@ and transparency beat feature breadth. No growth/monetization goals.
 ## 1. Platform & Access
 
 - **Platform:** Progressive Web App (installable via "Add to Home Screen"). The invite link opens directly in the app.
-- **Sign-in:** Google sign-in; email magic link as fallback. No phone OTP.
+- **Sign-in:** Google sign-in; email magic link as fallback. The sign-in email also carries a
+  6-digit code that can be typed into the app instead of tapping the link — needed on iPhone,
+  where links open in Safari, not the installed app. Code and link expire together after 10 minutes
+  and each works once; asking again replaces the code; 5 wrong codes and a new email is needed.
+  No phone OTP.
 - **Offline:** Not supported in v1. App shows an "offline" state; no writes while offline.
 - **Profile:** name, photo, email, optional **UPI ID**, **default currency** (INR).
 

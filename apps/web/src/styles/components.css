@@ -186,6 +186,85 @@
   font-size: var(--text-small);
 }
 
+/* ── Code input (sign-in code) ───────────────────────────────── */
+.code-input {
+  position: relative;
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* The real input covers the boxes invisibly: it takes taps, typing, paste and autofill. */
+.code-input__field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  font-size: 16px; /* below 16px iOS zooms in on focus */
+  caret-color: transparent;
+}
+
+.code-input__cell {
+  flex: 1;
+  max-width: 52px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.code-input__cell--filled {
+  border-color: var(--text);
+}
+
+.code-input__field:focus-visible ~ .code-input__cell--active,
+.code-input__field:focus ~ .code-input__cell--active {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Green block caret in the next empty box. */
+.code-input__field:focus ~ .code-input__cell--active:empty::after {
+  content: '';
+  width: 0.55em;
+  height: 1em;
+  background: var(--primary);
+  animation: blink 1s steps(1) infinite;
+}
+
+.code-input--error .code-input__cell {
+  border-color: var(--danger-text);
+}
+
+.code-input__field:disabled ~ .code-input__cell {
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-input__field:focus ~ .code-input__cell--active:empty::after {
+    animation: none;
+  }
+}
+
+/* ── "Sent to" panel (E2) ─────────────────────────────────────── */
+.sent-to {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sent-to__email {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 /* ── Readout panel ───────────────────────────────────────────── */
 .readout {
   position: relative;

@@ -361,6 +361,16 @@ Label above (VT323 label style), 48px field, `surface` fill, 1px border, `sm` ra
 Focus: 2px CRT Green ring, 2px offset. Error: border and message below in `danger-text`
 (Small). No floating labels. Helper text in muted Small.
 
+### Code input (sign-in code)
+Six boxes in a row sharing the field's width (8px gaps, max 52px wide, 56px tall), each an
+input-styled cell: `surface` fill, 1px border, `sm` radius, one digit in JetBrains Mono 600
+1.75rem with tabular figures. Not VT323: it is a value the user types and reads back. One real
+`<input>` sits invisibly over the boxes (`inputmode="numeric"`, `autocomplete="one-time-code"`,
+16px font so iOS doesn't zoom), so typing, pasting "482 913" and the iOS/Android code autofill
+just work. The next empty box shows the focus ring (2px CRT Green) and a green block caret;
+filled boxes have an Off-White border. Error: all six borders `danger-text`, message below. The
+sixth digit submits by itself; the primary key below stays for clarity.
+
 ### Badges
 Small VT323 uppercase in a 1px bordered box with an LED dot:
 `ADMIN` (beige) · `PLACEHOLDER` (grey) · `REMOVED` (grey, strikethrough name) ·
