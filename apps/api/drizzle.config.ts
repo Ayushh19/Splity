@@ -1,10 +1,12 @@
 import { defineConfig } from 'drizzle-kit';
 
+// `db:generate` only reads the schema; `db:studio` opens DATABASE_URL (e.g. Neon) or the local PGlite folder.
 export default defineConfig({
   dialect: 'postgresql',
-  driver: 'pglite',
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dbCredentials: { url: process.env.DATABASE_DIR ?? './.data/pglite' },
   strict: true,
+  ...(process.env.DATABASE_URL
+    ? { dbCredentials: { url: process.env.DATABASE_URL } }
+    : { driver: 'pglite', dbCredentials: { url: process.env.DATABASE_DIR ?? './.data/pglite' } }),
 });

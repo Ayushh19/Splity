@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:custom": "drizzle-kit generate --custom",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:pg": "vitest run --no-file-parallelism"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -19,11 +20,13 @@
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.3",
     "hono": "^4.13.12",
+    "pg": "^8.23.1",
     "web-push": "^3.6.7",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
     "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",

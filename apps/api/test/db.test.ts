@@ -1,13 +1,14 @@
 import { eq, and } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openDb, type Db } from '../src/db/client';
+import type { Db } from '../src/db/client';
+import { openTestDb } from './db-target';
 import { expensePayers, expenses, expenseSplits, groupMembers, groups, settlements, users } from '../src/db/schema';
 
 let db: Db;
 let close: () => Promise<void>;
 
 beforeAll(async () => {
-  ({ db, close } = await openDb());
+  ({ db, close } = await openTestDb());
 });
 afterAll(() => close());
 

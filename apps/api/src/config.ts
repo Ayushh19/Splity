@@ -3,7 +3,8 @@ export interface Config {
   /** Public origin of the app (the web origin; /api is served from it). */
   baseUrl: string;
   authSecret: string;
-  databaseDir: string;
+  /** PostgreSQL server (production, e.g. Neon) when DATABASE_URL is set; otherwise a local PGlite folder. */
+  database: { url: string } | { dir: string };
   /** `redirectUri` must exactly match an authorized redirect URI in Google Cloud Console. */
   google: { clientId: string; clientSecret: string; redirectUri: string } | null;
   resendApiKey: string | null;
@@ -34,7 +35,9 @@ export function loadConfig(): Config {
   return {
     baseUrl,
     authSecret,
-    databaseDir: process.env.DATABASE_DIR ?? './.data/pglite',
+    database: process.env.DATABASE_URL
+      ? { url: process.env.DATABASE_URL }
+      : { dir: process.env.DATABASE_DIR ?? './.data/pglite' },
     google:
       clientId && clientSecret
         ? {

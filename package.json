@@ -11,9 +11,11 @@
     "dev:api": "pnpm --filter @splity/api dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "vercel-build": "pnpm --filter @splity/web build && node scripts/build-vercel.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }
 }

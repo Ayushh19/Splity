@@ -1,6 +1,6 @@
 import { createApp } from '../src/app';
 import { createAuth } from '../src/auth';
-import { openDb } from '../src/db/client';
+import { openTestDb } from './db-target';
 import type { MagicLinkEmail } from '../src/email';
 import { createNotifier, type DeviceSubscription } from '../src/services/push';
 import { createRecurringJob } from '../src/services/recurring';
@@ -10,7 +10,7 @@ export const BASE_URL = 'http://localhost:3000';
 
 /** A full app on an in-memory database, with magic-link emails captured instead of sent. */
 export async function testApp(options: { google?: { clientId: string; clientSecret: string; redirectUri: string } } = {}) {
-  const { db, close } = await openDb();
+  const { db, close } = await openTestDb();
   const outbox: MagicLinkEmail[] = [];
   const auth = createAuth({
     db,
