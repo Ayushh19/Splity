@@ -32,5 +32,5 @@ export async function createMainApp(config: Config) {
     cronSecret: config.cronSecret,
     features: { google: config.google !== null, vapidPublicKey: config.vapid?.publicKey ?? null },
   });
-  return { app, recurring, today };
+  return { app, notifier, recurring, today };
 }
